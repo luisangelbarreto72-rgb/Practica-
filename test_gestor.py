@@ -38,5 +38,23 @@ class TestMateria(unittest.TestCase):
         self.assertIn("Puntaje ganado actual: 30.0 pts", estado)
         self.assertIn("Te faltan 30.0 puntos para llegar a los 60.0 puntos mínimos.", estado)
 
+    def test_to_dict_and_from_dict(self):
+        materia_original = Materia("Química")
+        materia_original.registrar_evaluacion("Taller 1", 10.0, 15.0)
+
+        # Serializar
+        data = materia_original.to_dict()
+        self.assertEqual(data["nombre"], "Química")
+        self.assertEqual(data["acumulado_notas"], 10.0)
+        self.assertEqual(data["puntos_totales_evaluados"], 15.0)
+        self.assertEqual(data["nota_minima"], 60.0)
+
+        # Deserializar
+        materia_recuperada = Materia.from_dict(data)
+        self.assertEqual(materia_recuperada.nombre, "Química")
+        self.assertEqual(materia_recuperada.acumulado_notas, 10.0)
+        self.assertEqual(materia_recuperada.puntos_totales_evaluados, 15.0)
+        self.assertEqual(materia_recuperada.nota_minima, 60.0)
+
 if __name__ == '__main__':
     unittest.main()
