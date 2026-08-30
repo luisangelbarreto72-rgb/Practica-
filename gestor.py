@@ -1,170 +1,229 @@
 import json
 import os
+from typing import List, Optional
+
+ARCHIVO_DATOS = "datos.json"
 
 class Materia:
-    def __init__(self, nombre: str, nota_minima: float = 60.0):
+    def __init__(self, nombre: str, nota_minima: float = 60.0) -> None:
         self.nombre = nombre
         self.nota_minima = nota_minima
         self.acumulado_notas = 0.0
         self.puntos_totales_evaluados = 0.0
-        self.evaluaciones = [] # Lista para llevar registro de las evaluaciones
+        self.evaluaciones = []
 
-    def registrar_evaluacion(self, nombre_evaluacion: str, puntos_ganados: float, puntos_totales_prueba: float):
-        """Registra una nueva evaluación y suma los puntos."""
+    def registrar_evaluacion(self, nombre_evaluacion: str, puntos_ganados: float, puntos_totales_prueba: float) -> None:
         self.acumulado_notas += puntos_ganados
         self.puntos_totales_evaluados += puntos_totales_prueba
-        
-        # Guardamos un diccionario con los datos de la evaluación
-        evaluacion = {
+        self.evaluaciones.append({
             "nombre": nombre_evaluacion,
             "ganados": puntos_ganados,
-            "totales": puntos_totales_prueba
-        }
-        self.evaluaciones.append(evaluacion)
+            "totales": puntos_totales_prueba,
+        })
 
-    def calcular_promedio_actual(self) -> float:
-        """Calcula el promedio actual basado en los puntos evaluados."""
+    def calcular_promedio(self) -> float:
         if self.puntos_totales_evaluados == 0:
             return 0.0
         return (self.acumulado_notas / self.puntos_totales_evaluados) * 100
 
     def obtener_estado(self) -> str:
-        promedio = self.calcular_promedio_actual()
-        estado = "Aprobada" if promedio >= self.nota_minima else "En riesgo / Reprobada"
-        return f"Materia: {self.nombre} | Promedio Actual: {promedio:.2f}% | Estado: {estado}"
+        reporte = [
+            f"\n=== REPORTE DE PROGRESO: {self.nombre.upper()} ===",
+            f"  Puntos evaluados hasta ahora: {self.puntos_totales_evaluados} pts",
+            f"  Puntaje ganado actual: {round(self.acumulado_notas, 2)} pts",
+            f"  Rendimiento actual: {round(self.calcular_promedio(), 2)}%",
+            "-" * 40,
+        ]
 
-    def a_diccionario(self) -> dict:
-        """Convierte el objeto Materia a un diccionario para poder guardarlo en JSON."""
+        if self.evaluaciones:
+            reporte.append("  Evaluaciones registradas:")
+            for ev in self.evaluaciones:
+                reporte.append(f"   - {ev['nombre']}: sacaste {ev['ganados']} de {ev['totales']} pts")
+            reporte.append("-" * 40)
+        else:
+            reporte.append("  (No hay evaluaciones registradas aún)")
+            reporte.append("-" * 40)
+
+        if self.acumulado_notas >= self.nota_minima:
+            reporte.append("  ✅ ¡Aprobada! Has alcanzado los puntos mínimos.")
+        else:
+            faltante = self.nota_minima - self.acumulado_notas
+            reporte.append(f"  ⚠️ Te faltan {round(faltante, 2)} puntos para los {self.nota_minima} mínimos requeridos.")
+
+        reporte.append("=" * 40)
+        return "\n".join(reporte)
+
+    def to_dict(self) -> dict:
         return {
             "nombre": self.nombre,
             "nota_minima": self.nota_minima,
             "acumulado_notas": self.acumulado_notas,
             "puntos_totales_evaluados": self.puntos_totales_evaluados,
-            "evaluaciones": self.evaluaciones
+            "evaluaciones": self.evaluaciones,
         }
 
     @classmethod
-    def desde_diccionario(cls, datos: dict):
-        """Reconstruye un objeto Materia a partir de un diccionario del archivo JSON."""
-        materia = cls(datos["nombre"], datos["nota_minima"])
-        materia.acumulado_notas = datos["acumulado_notas"]
-        materia.puntos_totales_evaluados = datos["puntos_totales_evaluados"]
-        materia.evaluaciones = datos.get("evaluaciones", [])
-        return materia
+    def from_dict(cls, data: dict) -> Optional["Materia"]:
+        try:
+            materia = cls(data["nombre"], data.get("nota_minima", 60.0))
+            materia.acumulado_notas = float(data.get("acumulado_notas", 0.0))
+            materia.puntos_totales_evaluados = float(data.get("puntos_totales_evaluados", 0.0))
+            materia.evaluaciones = data.get("evaluaciones", [])
+            return materia
+        except Exception:
+            return None
 
 
-# --- FUNCIONES DE PERSISTENCIA (GUARDAR Y CARGAR DATOS) ---
-
-NOMBRE_ARCHIVO = "datos.json"
-
-def guardar_datos(semestre: list):
-    """Guarda la lista de materias en un archivo JSON en el disco duro."""
-    datos_para_guardar = [materia.a_diccionario() for materia in semestre]
+def cargar_datos() -> List[Materia]:
+    if not os.path.exists(ARCHIVO_DATOS):
+        return []
     try:
-        with open(NOMBRE_ARCHIVO, "w", encoding="utf-8") as archivo:
-            json.dump(datos_para_guardar, archivo, indent=4, ensure_ascii=False)
-        print("💾 [Sistema]: Datos guardados con éxito en datos.json")
+        with open(ARCHIVO_DATOS, "r", encoding="utf-8") as f:
+            contenido = f.read().strip()
+            if not contenido:
+                return []
+            datos = json.loads(contenido)
+            return [m for m in (Materia.from_dict(d) for d in datos) if m is not None]
     except Exception as e:
-        print(f"⚠️ [Error]: No se pudieron guardar los datos: {e}")
-
-def cargar_datos() -> list:
-    """Carga las materias desde el archivo JSON si existe."""
-    if not os.path.exists(NOMBRE_ARCHIVO):
-        return [] # Si el archivo no existe, retornamos una lista vacía
-    
-    try:
-        with open(NOMBRE_ARCHIVO, "r", encoding="utf-8") as archivo:
-            datos_cargados = json.load(archivo)
-            # Convertimos cada diccionario de vuelta a un objeto de la clase Materia
-            semestre = [Materia.desde_diccionario(d) for d in datos_cargados]
-            print(f"📂 [Sistema]: Se cargaron {len(semestre)} materias desde datos.json")
-            return semestre
-    except Exception as e:
-        print(f"⚠️ [Error]: No se pudieron leer los datos guardados: {e}")
+        print(f"\n⚠️ ATENCIÓN: El archivo 'datos.json' estaba corrupto ({e}).")
+        print("Se ha iniciado un semestre limpio para evitar errores de lectura.")
         return []
 
+def guardar_datos(semestre: List[Materia]) -> None:
+    try:
+        with open(ARCHIVO_DATOS, "w", encoding="utf-8") as f:
+            json.dump([materia.to_dict() for materia in semestre], f, indent=4)
+    except Exception as e:
+        print(f"\n⚠️ Error al guardar los datos: {e}")
 
-# --- MENÚ PRINCIPAL ---
-
-def main() -> None:
-    # Cargamos el semestre automáticamente al iniciar el programa
-    semestre = cargar_datos()
-
+def solicitar_evaluaciones(materia: Materia, semestre: List[Materia]) -> None:
     while True:
-        print("\n=== MENÚ PRINCIPAL ===")
-        print("1. Agregar nueva materia o registrar evaluaciones")
-        print("2. Ver resumen del semestre")
-        print("3. Calcular promedio general")
-        print("4. Salir y guardar")
+        print(f"\n📝 Gestión de evaluaciones para: {materia.nombre}")
+        continuar = input("¿Deseas registrar una evaluación? (si/no): ").strip().lower()
         
-        try:
-            opcion = int(input("Elige una opción (1/2/3/4): "))
-        except ValueError:
-            print("⚠️ Error: Por favor, ingresa un número válido.")
+        # Aceptamos variantes comunes para evitar frustración
+        if continuar in ["no", "n"]:
+            print(f"Finalizando registro para {materia.nombre}...\n")
+            break
+        elif continuar not in ["si", "sí", "s", "yes", "y"]:
+            print("⚠️ Opción no válida. Escribe 'si' o 'no'.")
             continue
 
-        if opcion == 1:
-            nombre_input = input("Ingresa el nombre de la materia: ").strip()
-            
-            # Verificamos si la materia ya existe en el semestre para actualizarla o crear una nueva
-            materia_encontrada = None
-            for m in semestre:
-                if m.nombre.lower() == nombre_input.lower():
-                    materia_encontrada = m
-                    break
-            
-            if materia_encontrada:
-                print(f"🔍 ¡Materia encontrada! Añadiendo evaluación a '{materia_encontrada.nombre}'.")
-                nueva_materia = materia_encontrada
-            else:
-                try:
-                    nota_min = float(input("Ingresa la nota mínima para aprobar (ej. 60): "))
-                except ValueError:
-                    nota_min = 60.0
-                nueva_materia = Materia(nombre_input, nota_min)
-                semestre.append(nueva_materia)
-                print(f"✅ ¡{nueva_materia.nombre} agregada con éxito a tu semestre!")
+        nombre_eval = input("\nNombre de la evaluación (ej: Parcial 1): ").strip()
+        if not nombre_eval:
+            print("⚠️ El nombre no puede estar vacío.")
+            continue
 
-            # Registrar evaluaciones con los textos claros que pediste
-            while True:
-                nombre_eval = input("Nombre de la evaluación (o escribe 'listo' para terminar): ")
-                if nombre_eval.lower() == 'listo':
-                    break
-                try:
-                    ganados = float(input("Puntos obtenidos: "))
-                    totales = float(input("Puntos de la prueba: "))
-                    nueva_materia.registrar_evaluacion(nombre_eval, ganados, totales)
-                    print("👍 ¡Evaluación registrada con éxito!")
-                except ValueError:
-                    print("⚠️ Error en los puntos. Deben ser números.")
+        try:
+            ptos_totales = float(input("¿Cuántos puntos en TOTAL vale la evaluación?: "))
+            if ptos_totales <= 0:
+                print("⚠️ El puntaje total debe ser mayor a cero.")
+                continue
 
-        elif opcion == 2:
-            if not semestre:
-                print("📭 No hay materias registradas en el semestre todavía.")
-            else:
-                print("\n=== RESUMEN FINAL DE TU SEMESTRE ===")
-                for materia in semestre:
-                    print(materia.obtener_estado())
-                    if materia.evaluaciones:
-                        print("   Evaluaciones registradas:")
-                        for ev in materia.evaluaciones:
-                            print(f"    - {ev['nombre']}: {ev['ganados']}/{ev['totales']}")
+            ptos_ganados = float(input(f"¿Cuántos puntos SACASTE de esos {ptos_totales}?: "))
+            if ptos_ganados < 0 or ptos_ganados > ptos_totales:
+                print(f"⚠️ Los puntos obtenidos deben estar entre 0 y {ptos_totales}.")
+                continue
 
-        elif opcion == 3:
-            if not semestre:
-                print("📭 No hay materias registradas para calcular el promedio.")
-            else:
-                suma_promedios = sum(m.calcular_promedio_actual() for m in semestre)
-                promedio_general = suma_promedios / len(semestre)
-                print(f"\n📊 Promedio General del Semestre: {promedio_general:.2f}%")
-
-        elif opcion == 4:
-            # Guardamos los datos antes de salir del programa
+            materia.registrar_evaluacion(nombre_eval, ptos_ganados, ptos_totales)
             guardar_datos(semestre)
-            print("¡Hasta luego! Tus datos se han guardado de forma segura.")
+            print("\n✅ ¡Evaluación guardada exitosamente!")
+
+        except ValueError:
+            print("\n⚠️ Error: Ingresa un número válido (ej: 20 o 15.5).")
+
+def mostrar_menu_principal() -> str:
+    print("=" * 50)
+    print("      🎓 GESTOR ACADÉMICO INTELIGENTE 🎓")
+    print("=" * 50)
+    print("1. Agregar una nueva materia")
+    print("2. Gestionar/Añadir notas a una materia")
+    print("3. Ver resumen del semestre")
+    print("4. Salir")
+    print("-" * 50)
+    return input("Elige una opción (1-4): ").strip()
+
+def principal() -> None:
+    semestre = cargar_datos()
+    print("\nIniciando sistema académico...")
+    if semestre:
+        print(f"📂 Se cargaron {len(semestre)} materias registradas.")
+    else:
+        print("📂 No hay materias previas. Iniciando semestre nuevo.")
+
+    while True:
+        opcion = mostrar_menu_principal()
+
+        if opcion == "1":
+            nombre = input("\nIngresa el nombre de la nueva materia: ").strip()
+            if not nombre:
+                print("⚠️ El nombre no puede estar vacío.\n")
+                continue
+
+            existe = any(m.nombre.lower() == nombre.lower() for m in semestre)
+            if existe:
+                print(f"⚠️ '{nombre}' ya existe. Usa la opción 2 para gestionarla.\n")
+            else:
+                try:
+                    nota_min = input("Nota mínima para aprobar (Presiona Enter para 60.0): ").strip()
+                    nota_min_val = float(nota_min) if nota_min else 60.0
+                except ValueError:
+                    nota_min_val = 60.0
+
+                nueva = Materia(nombre, nota_min_val)
+                semestre.append(nueva)
+                guardar_datos(semestre)
+                print(f"✅ Materia '{nueva.nombre}' agregada con éxito.\n")
+                solicitar_evaluaciones(nueva, semestre)
+
+        elif opcion == "2":
+            if not semestre:
+                print("\n⚠️ No tienes materias registradas. Agrega una con la opción 1.\n")
+                continue
+
+            print("\n📚 Materias registradas:")
+            for i, m in enumerate(semestre, start=1):
+                print(f"  {i}. {m.nombre}")
+
+            seleccion = input("\nIngresa el número de la materia (o '0' para volver): ").strip()
+            try:
+                idx = int(seleccion) - 1
+                if idx == -1:
+                    continue
+                if 0 <= idx < len(semestre):
+                    solicitar_evaluaciones(semestre[idx], semestre)
+                else:
+                    print("⚠️ Número fuera de rango.\n")
+            except ValueError:
+                print("⚠️ Por favor ingresa un número entero.\n")
+
+        elif opcion == "3":
+            if not semestre:
+                print("\n📭 No hay materias registradas en el semestre.\n")
+            else:
+                print("\n" + "=" * 50)
+                print("         📊 RESUMEN DEL SEMESTRE 📊")
+                print("=" * 50)
+                for m in semestre:
+                    print(m.obtener_estado())
+                
+                promedios = [m.calcular_promedio() for m in semestre if m.puntos_totales_evaluados > 0]
+                if promedios:
+                    promedio_general = sum(promedios) / len(promedios)
+                    print(f"\n🎯 Promedio General Actual: {round(promedio_general, 2)}%\n")
+                else:
+                    print("\n🎯 Aún no hay evaluaciones calificadas para un promedio general.\n")
+
+        elif opcion == "4":
+            guardar_datos(semestre)
+            print("\n¡Datos guardados! Cerrando el gestor. 🎓\n")
             break
+
         else:
-            print("⚠️ Opción no válida. Por favor, escribe 1, 2, 3 o 4.")
+            print("\n⚠️ Opción no válida. Ingresa un número del 1 al 4.\n")
 
 if __name__ == "__main__":
-    main()
+    try:
+        principal()
+    except KeyboardInterrupt:
+        print("\n\nSaliendo de forma segura... 👋\n")
