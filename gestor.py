@@ -67,18 +67,14 @@ class Materia:
                 "puntos_totales_evaluados", 0.0
             )
             return materia
-        except KeyError as e:
-            print(f"\n⚠️  Advertencia: Estructura de datos incompleta "
-                  f"al cargar la materia. Falta la clave: {e}")
+        except KeyError:
             return None
-        except Exception as e:
-            print(f"\n⚠️  Advertencia: Error desconocido al cargar "
-                  f"una materia: {e}")
+        except Exception:
             return None
 
 
 def cargar_datos() -> List[Materia]:
-    """Carga los datos guardados en el archivo JSON."""
+    """Carga los datos de JSON, fallando silenciosamente si hay error."""
     if not os.path.exists(ARCHIVO_DATOS):
         return []
 
@@ -86,8 +82,6 @@ def cargar_datos() -> List[Materia]:
         with open(ARCHIVO_DATOS, "r", encoding="utf-8") as f:
             datos = json.load(f)
             if not isinstance(datos, list):
-                print("\n⚠️  El formato de 'datos.json' es inválido. "
-                      "Se iniciará un semestre vacío.")
                 return []
 
             materias_cargadas = []
@@ -96,13 +90,7 @@ def cargar_datos() -> List[Materia]:
                 if materia:
                     materias_cargadas.append(materia)
             return materias_cargadas
-
-    except json.JSONDecodeError:
-        print("\n⚠️  Error: El archivo 'datos.json' está corrupto o mal "
-              "formado. Se iniciará un semestre vacío.")
-        return []
-    except Exception as e:
-        print(f"\n⚠️  Error inesperado al cargar los datos: {e}")
+    except (json.JSONDecodeError, Exception):
         return []
 
 
@@ -111,10 +99,8 @@ def guardar_datos(semestre: List[Materia]) -> None:
     try:
         with open(ARCHIVO_DATOS, "w", encoding="utf-8") as f:
             json.dump([materia.to_dict() for materia in semestre], f, indent=4)
-    except IOError as e:
-        print(f"\n⚠️  Error de entrada/salida al guardar los datos: {e}")
-    except Exception as e:
-        print(f"\n⚠️  Error inesperado al guardar los datos: {e}")
+    except Exception:
+        pass
 
 
 def solicitar_evaluaciones(materia: Materia, semestre: List[Materia]) -> None:
@@ -153,12 +139,11 @@ def solicitar_evaluaciones(materia: Materia, semestre: List[Materia]) -> None:
             print("\n✅  ¡Evaluación registrada exitosamente!")
             print(f"    Evaluación: {nombre_eval} | Aporte: {ptos_gan} pts")
             guardar_datos(semestre)
-
         except ValueError:
             print("\n⚠️  ¡Error! Debes ingresar un número válido "
                   "(ej: 15.5 o 20), no texto u otros caracteres.")
-        except Exception as e:
-            print(f"\n⚠️  Ocurrió un error inesperado al registrar: {e}")
+        except Exception:
+            print("\n⚠️  Ocurrió un error inesperado al registrar.")
 
 
 def mostrar_menu_principal() -> str:
@@ -194,6 +179,7 @@ def principal() -> None:
                                  ).strip()
             if not nombre_input:
                 print("⚠️  El nombre de la materia no puede estar vacío.\n")
+                input("\nPresiona Enter para continuar...")
                 continue
 
             materia_existente = next(
@@ -212,10 +198,13 @@ def principal() -> None:
                       "éxito a tu semestre!\n")
                 solicitar_evaluaciones(nueva_materia, semestre)
 
+            input("\nPresiona Enter para continuar al menú...")
+
         elif opcion == "2":
             if not semestre:
                 print("\n⚠️  No tienes materias registradas actualmente. "
                       "Agrega una primero.\n")
+                input("\nPresiona Enter para continuar...")
                 continue
 
             print("\n📚 Tus materias actuales:")
@@ -229,14 +218,15 @@ def principal() -> None:
                 seleccion_idx = int(seleccion) - 1
                 if seleccion_idx == -1:
                     print("Cancelando...\n")
-                    continue
-                if 0 <= seleccion_idx < len(semestre):
+                elif 0 <= seleccion_idx < len(semestre):
                     materia_seleccionada = semestre[seleccion_idx]
                     solicitar_evaluaciones(materia_seleccionada, semestre)
                 else:
                     print("\n⚠️  Número de materia no válido.\n")
             except ValueError:
                 print("\n⚠️  Por favor, ingresa un número válido.\n")
+
+            input("\nPresiona Enter para continuar al menú...")
 
         elif opcion == "3":
             if not semestre:
@@ -248,6 +238,8 @@ def principal() -> None:
                 for materia in semestre:
                     print(materia.obtener_estado())
 
+            input("\nPresiona Enter para continuar al menú...")
+
         elif opcion == "4":
             print("\n¡Gracias por usar el Gestor Académico Inteligente! "
                   "¡Mucho éxito en tus estudios! 🎓\n")
@@ -256,6 +248,7 @@ def principal() -> None:
         else:
             print("\n⚠️  Opción no válida. Por favor, selecciona una "
                   "opción del 1 al 4.\n")
+            input("\nPresiona Enter para continuar...")
 
 
 if __name__ == "__main__":
