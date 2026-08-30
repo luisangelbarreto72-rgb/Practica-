@@ -1,40 +1,55 @@
 import json
 import os
+from typing import List, Optional
 
 # Gestor Académico Inteligente - Sistema Completo
 
 ARCHIVO_DATOS = "datos.json"
 
+
 class Materia:
-    def __init__(self, nombre: str, nota_minima: float = 60.0):
+    """Clase que representa una materia académica y su progreso."""
+
+    def __init__(self, nombre: str, nota_minima: float = 60.0) -> None:
         self.nombre = nombre
         self.nota_minima = nota_minima
         self.acumulado_notas = 0.0
         self.puntos_totales_evaluados = 0.0
 
-    def registrar_evaluacion(self, nombre_evaluacion: str, puntos_ganados: float, puntos_totales_prueba: float) -> None:
+    def registrar_evaluacion(self, nombre_evaluacion: str,
+                             puntos_ganados: float,
+                             puntos_totales_prueba: float) -> None:
         """Registra una nueva evaluación y suma los puntos."""
         self.acumulado_notas += puntos_ganados
         self.puntos_totales_evaluados += puntos_totales_prueba
 
     def obtener_estado(self) -> str:
-        """Genera un reporte del progreso actual de la materia."""
+        """Genera un reporte formateado del progreso actual de la materia."""
+        ptos_ev = self.puntos_totales_evaluados
         reporte = [
-            f"\n=== REPORTE DE PROGRESO: {self.nombre} ===",
-            f"Puntos evaluados hasta ahora: {self.puntos_totales_evaluados} de 100 pts posibles",
-            f"Puntaje ganado actual: {round(self.acumulado_notas, 2)} pts"
+            f"\n=== REPORTE DE PROGRESO: {self.nombre.upper()} ===",
+            f"  Puntos evaluados hasta ahora: {ptos_ev} de 100 pts posibles",
+            f"  Puntaje ganado actual: {round(self.acumulado_notas, 2)} pts",
+            "-" * 40
         ]
 
         if self.acumulado_notas >= self.nota_minima:
-            reporte.append("¡Felicidades! Ya alcanzaste o superaste los 60 puntos para pasar.")
+            reporte.append(
+                "  ✅ ¡Felicidades! Ya alcanzaste o superaste los puntos "
+                "para pasar."
+            )
         else:
             faltante = self.nota_minima - self.acumulado_notas
-            reporte.append(f"Te faltan {round(faltante, 2)} puntos para llegar a los {self.nota_minima} puntos mínimos.")
+            reporte.append(
+                f"  ⚠️ Te faltan {round(faltante, 2)} puntos para llegar "
+                f"a los {self.nota_minima} puntos mínimos."
+            )
 
+        reporte.append("=" * 40 + "\n")
         return "\n".join(reporte)
 
     def to_dict(self) -> dict:
-        """Convierte la materia a un diccionario para guardarlo en JSON."""
+        """Convierte la materia a un diccionario para JSON."""
         return {
             "nombre": self.nombre,
             "nota_minima": self.nota_minima,
@@ -43,91 +58,208 @@ class Materia:
         }
 
     @classmethod
-    def from_dict(cls, data: dict) -> 'Materia':
+    def from_dict(cls, data: dict) -> Optional['Materia']:
         """Crea una instancia de Materia a partir de un diccionario."""
-        materia = cls(data["nombre"], data.get("nota_minima", 60.0))
-        materia.acumulado_notas = data.get("acumulado_notas", 0.0)
-        materia.puntos_totales_evaluados = data.get("puntos_totales_evaluados", 0.0)
-        return materia
+        try:
+            materia = cls(data["nombre"], data.get("nota_minima", 60.0))
+            materia.acumulado_notas = data.get("acumulado_notas", 0.0)
+            materia.puntos_totales_evaluados = data.get(
+                "puntos_totales_evaluados", 0.0
+            )
+            return materia
+        except KeyError as e:
+            print(f"\n⚠️  Advertencia: Estructura de datos incompleta "
+                  f"al cargar la materia. Falta la clave: {e}")
+            return None
+        except Exception as e:
+            print(f"\n⚠️  Advertencia: Error desconocido al cargar "
+                  f"una materia: {e}")
+            return None
 
 
-def cargar_datos() -> list[Materia]:
+def cargar_datos() -> List[Materia]:
     """Carga los datos guardados en el archivo JSON."""
     if not os.path.exists(ARCHIVO_DATOS):
         return []
+
     try:
         with open(ARCHIVO_DATOS, "r", encoding="utf-8") as f:
             datos = json.load(f)
-            return [Materia.from_dict(d) for d in datos]
+            if not isinstance(datos, list):
+                print("\n⚠️  El formato de 'datos.json' es inválido. "
+                      "Se iniciará un semestre vacío.")
+                return []
+
+            materias_cargadas = []
+            for d in datos:
+                materia = Materia.from_dict(d)
+                if materia:
+                    materias_cargadas.append(materia)
+            return materias_cargadas
+
+    except json.JSONDecodeError:
+        print("\n⚠️  Error: El archivo 'datos.json' está corrupto o mal "
+              "formado. Se iniciará un semestre vacío.")
+        return []
     except Exception as e:
-        print(f"⚠️ Error al cargar los datos: {e}")
+        print(f"\n⚠️  Error inesperado al cargar los datos: {e}")
         return []
 
 
-def guardar_datos(semestre: list[Materia]) -> None:
+def guardar_datos(semestre: List[Materia]) -> None:
     """Guarda la lista de materias en el archivo JSON."""
     try:
         with open(ARCHIVO_DATOS, "w", encoding="utf-8") as f:
             json.dump([materia.to_dict() for materia in semestre], f, indent=4)
+    except IOError as e:
+        print(f"\n⚠️  Error de entrada/salida al guardar los datos: {e}")
     except Exception as e:
-        print(f"⚠️ Error al guardar los datos: {e}")
+        print(f"\n⚠️  Error inesperado al guardar los datos: {e}")
 
 
-def solicitar_evaluaciones(materia: Materia, semestre: list[Materia]) -> None:
-    """Maneja la entrada de usuario para registrar las evaluaciones de una materia."""
+def solicitar_evaluaciones(materia: Materia, semestre: List[Materia]) -> None:
+    """Maneja la entrada del usuario para registrar las evaluaciones."""
     while True:
         while True:
-            continuar = input(f"¿Deseas registrar una nota para {materia.nombre}? (si/no): ").strip().lower()
+            print(f"\n📝  Gestión de {materia.nombre}")
+            continuar = input("¿Deseas registrar una nueva nota? (si/no): "
+                              ).strip().lower()
             if continuar in ("si", "no"):
                 break
-            print("⚠️ Opción no válida. Por favor, escribe exactamente 'si' o 'no'.")
+            print("⚠️  Opción no válida. Escribe exactamente 'si' o 'no'.")
 
         if continuar == "no":
+            print(f"Saliendo de la gestión de {materia.nombre}...\n")
             break
 
-        nombre_eval = input("Nombre de la evaluación (ej: Parcial 1): ").strip()
+        nombre_eval = input("\nNombre de la evaluación (ej: Parcial 1): "
+                            ).strip()
+        if not nombre_eval:
+            print("⚠️  El nombre de la evaluación no puede estar vacío.")
+            continue
 
         try:
-            puntos_totales = float(input("¿Cuántos puntos de la materia valía esta evaluación?: "))
-            puntos_ganados = float(input(f"¿Cuántos puntos te ganaste de esos {puntos_totales}?: "))
+            ptos = float(input("¿Cuántos puntos valía esta evaluación?: "))
+            if ptos <= 0:
+                print("⚠️  Los puntos totales deben ser mayores a cero.")
+                continue
 
-            materia.registrar_evaluacion(nombre_eval, puntos_ganados, puntos_totales)
-            print(f"-> Evaluación registrada: {nombre_eval} | Aporte directo: {puntos_ganados} pts")
+            ptos_gan = float(input(f"¿Cuántos te ganaste de esos {ptos}?: "))
+            if ptos_gan < 0 or ptos_gan > ptos:
+                print("⚠️  Los puntos deben estar entre 0 y el total.")
+                continue
+
+            materia.registrar_evaluacion(nombre_eval, ptos_gan, ptos)
+            print("\n✅  ¡Evaluación registrada exitosamente!")
+            print(f"    Evaluación: {nombre_eval} | Aporte: {ptos_gan} pts")
             guardar_datos(semestre)
+
         except ValueError:
-            print("⚠️ ¡Error! Debes ingresar un número válido, no letras.")
+            print("\n⚠️  ¡Error! Debes ingresar un número válido "
+                  "(ej: 15.5 o 20), no texto u otros caracteres.")
+        except Exception as e:
+            print(f"\n⚠️  Ocurrió un error inesperado al registrar: {e}")
 
 
-def main() -> None:
-    """Función principal que ejecuta el programa interactivo."""
+def mostrar_menu_principal() -> str:
+    """Muestra el menú principal y obtiene la elección del usuario."""
+    print("=" * 50)
+    print("     🎓 GESTOR ACADÉMICO INTELIGENTE 🎓")
+    print("=" * 50)
+    print("Opciones disponibles:")
+    print("  1. Agregar una nueva materia")
+    print("  2. Gestionar una materia existente")
+    print("  3. Ver resumen final de todas las materias")
+    print("  4. Salir")
+    print("-" * 50)
+    return input("Elige una opción (1-4): ").strip()
+
+
+def principal() -> None:
+    """Función principal que ejecuta el flujo interactivo del programa."""
+    print("\nIniciando el sistema...")
     semestre = cargar_datos()
-    if semestre:
-        print(f"✅ ¡Se cargaron {len(semestre)} materias del historial!")
 
-    print("=== CONFIGURACIÓN DE TU SEMESTRE ===")
+    if semestre:
+        print(f"✅ ¡Bienvenido de nuevo! Se han cargado {len(semestre)} "
+              "materias del historial.\n")
+    else:
+        print("✅ ¡Bienvenido! Estás comenzando un nuevo semestre.\n")
 
     while True:
-        nombre_input = input("\nIngresa una materia (o escribe 'salir' para terminar): ").strip()
+        opcion = mostrar_menu_principal()
 
-        if nombre_input.lower() == "salir":
+        if opcion == "1":
+            nombre_input = input("\nIngresa el nombre de la nueva materia: "
+                                 ).strip()
+            if not nombre_input:
+                print("⚠️  El nombre de la materia no puede estar vacío.\n")
+                continue
+
+            materia_existente = next(
+                (m for m in semestre
+                 if m.nombre.lower() == nombre_input.lower()),
+                None
+            )
+            if materia_existente:
+                print(f"⚠️  La materia '{nombre_input}' ya existe. "
+                      "Usa la opción 2 para gestionarla.\n")
+            else:
+                nueva_materia = Materia(nombre_input)
+                semestre.append(nueva_materia)
+                guardar_datos(semestre)
+                print(f"✅ ¡'{nueva_materia.nombre}' se ha agregado con "
+                      "éxito a tu semestre!\n")
+                solicitar_evaluaciones(nueva_materia, semestre)
+
+        elif opcion == "2":
+            if not semestre:
+                print("\n⚠️  No tienes materias registradas actualmente. "
+                      "Agrega una primero.\n")
+                continue
+
+            print("\n📚 Tus materias actuales:")
+            for idx, materia in enumerate(semestre, start=1):
+                print(f"  {idx}. {materia.nombre}")
+
+            seleccion = input("\nIngresa el número de la materia que "
+                              "deseas gestionar (o '0' para cancelar): "
+                              ).strip()
+            try:
+                seleccion_idx = int(seleccion) - 1
+                if seleccion_idx == -1:
+                    print("Cancelando...\n")
+                    continue
+                if 0 <= seleccion_idx < len(semestre):
+                    materia_seleccionada = semestre[seleccion_idx]
+                    solicitar_evaluaciones(materia_seleccionada, semestre)
+                else:
+                    print("\n⚠️  Número de materia no válido.\n")
+            except ValueError:
+                print("\n⚠️  Por favor, ingresa un número válido.\n")
+
+        elif opcion == "3":
+            if not semestre:
+                print("\n⚠️  No hay materias para mostrar.\n")
+            else:
+                print("\n" + "=" * 50)
+                print("         📊 RESUMEN FINAL DE TU SEMESTRE 📊")
+                print("=" * 50)
+                for materia in semestre:
+                    print(materia.obtener_estado())
+
+        elif opcion == "4":
+            print("\n¡Gracias por usar el Gestor Académico Inteligente! "
+                  "¡Mucho éxito en tus estudios! 🎓\n")
             break
 
-        materia_existente = next((m for m in semestre if m.nombre.lower() == nombre_input.lower()), None)
-
-        if materia_existente:
-            print(f"⚠️ La materia '{nombre_input}' ya existe en el historial. Vamos a registrarle notas adicionales.")
-            solicitar_evaluaciones(materia_existente, semestre)
         else:
-            nueva_materia = Materia(nombre_input)
-            semestre.append(nueva_materia)
-            guardar_datos(semestre)
-            print(f"✅ ¡{nueva_materia.nombre} agregada con éxito a tu semestre!")
-            solicitar_evaluaciones(nueva_materia, semestre)
-
-    print("\n=== RESUMEN FINAL DE TU SEMESTRE ===")
-    for materia in semestre:
-        print(materia.obtener_estado())
+            print("\n⚠️  Opción no válida. Por favor, selecciona una "
+                  "opción del 1 al 4.\n")
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        principal()
+    except KeyboardInterrupt:
+        print("\n\nSaliendo del programa de forma segura... 👋\n")

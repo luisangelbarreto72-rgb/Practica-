@@ -27,7 +27,7 @@ class TestMateria(unittest.TestCase):
         estado = materia.obtener_estado()
         self.assertIn("Puntos evaluados hasta ahora: 100.0", estado)
         self.assertIn("Puntaje ganado actual: 65.0 pts", estado)
-        self.assertIn("¡Felicidades! Ya alcanzaste o superaste los 60 puntos para pasar.", estado)
+        self.assertIn("¡Felicidades! Ya alcanzaste o superaste los puntos para pasar.", estado)
 
     def test_obtener_estado_reprobado(self):
         materia = Materia("Historia")
