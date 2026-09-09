@@ -1,7 +1,9 @@
 import json
 import os
+import platform
+import subprocess
 import customtkinter as ctk
-from tkinter import messagebox
+from tkinter import messagebox, filedialog
 from typing import List, Optional
 
 ARCHIVO_DATOS = "datos.json"
@@ -130,13 +132,14 @@ def calcular_promedio_general(lista_materias: List[Materia]) -> float:
     return round(promedio, 2)
 
 
-def exportar_boletin(lista_materias: List[Materia]) -> None:
+def exportar_boletin(
+    lista_materias: List[Materia], ruta_archivo: str = "boletin_oficial.txt"
+) -> None:
     """Crea un documento de texto real con el reporte de calificaciones."""
     if not lista_materias:
-        print("\n⚠️  No tienes materias registradas para exportar.")
         return
 
-    with open("boletin_oficial.txt", "w", encoding="utf-8") as archivo:
+    with open(ruta_archivo, "w", encoding="utf-8") as archivo:
         archivo.write("=" * 50 + "\n")
         archivo.write("    🎓 BOLETÍN ACADÉMICO OFICIAL 🎓\n")
         archivo.write("=" * 50 + "\n\n")
@@ -151,8 +154,6 @@ def exportar_boletin(lista_materias: List[Materia]) -> None:
                 f"{round(materia.puntos_totales_evaluados, 2)} pts\n"
             )
             archivo.write("-" * 40 + "\n")
-
-    print("\n📄 ¡Éxito! Revisa tu carpeta, se ha creado 'boletin_oficial.txt'.")
 
 
 def buscar_materias(
@@ -453,17 +454,40 @@ class GestorAcademicoApp(ctk.CTk):
                 )
 
     def exportar(self) -> None:
-        """Exporta el boletín de calificaciones."""
+        """Exporta el boletín de calificaciones y abre el archivo."""
         if not self.semestre:
             messagebox.showwarning(
                 "Advertencia", "No tienes materias registradas para exportar."
             )
             return
 
-        exportar_boletin(self.semestre)
-        messagebox.showinfo(
-            "Éxito", "Boletín exportado a 'boletin_oficial.txt'"
+        ruta_archivo = filedialog.asksaveasfilename(
+            defaultextension=".txt",
+            filetypes=[("Archivos de texto", "*.txt")],
+            initialfile="boletin_oficial.txt",
+            title="Guardar Boletín Como"
         )
+
+        if not ruta_archivo:
+            return
+
+        exportar_boletin(self.semestre, ruta_archivo)
+        messagebox.showinfo(
+            "Éxito", f"Boletín exportado a:\n{ruta_archivo}"
+        )
+
+        # Abrir archivo automáticamente
+        try:
+            if platform.system() == "Windows":
+                os.startfile(ruta_archivo)
+            elif platform.system() == "Darwin":
+                subprocess.call(["open", ruta_archivo])
+            else:
+                subprocess.call(["xdg-open", ruta_archivo])
+        except Exception as e:
+            messagebox.showerror(
+                "Error", f"No se pudo abrir el archivo automáticamente:\n{e}"
+            )
 
     def show_buscar(self) -> None:
         """Muestra la vista para buscar una materia."""
@@ -474,11 +498,17 @@ class GestorAcademicoApp(ctk.CTk):
         )
         label.pack(pady=20)
 
-        self.buscar_entry = ctk.CTkEntry(
-            self.main_frame, placeholder_text="Ingresa parte del nombre",
-            width=300
+        if not self.semestre:
+            ctk.CTkLabel(
+                self.main_frame, text="No tienes materias registradas."
+            ).pack()
+            return
+
+        nombres_materias = [m.nombre for m in self.semestre]
+        self.buscar_combobox = ctk.CTkComboBox(
+            self.main_frame, values=nombres_materias, width=300
         )
-        self.buscar_entry.pack(pady=10)
+        self.buscar_combobox.pack(pady=10)
 
         btn = ctk.CTkButton(
             self.main_frame, text="Buscar", command=self.realizar_busqueda
@@ -492,7 +522,7 @@ class GestorAcademicoApp(ctk.CTk):
 
     def realizar_busqueda(self) -> None:
         """Busca y muestra las materias en base al texto ingresado."""
-        texto = self.buscar_entry.get().strip()
+        texto = self.buscar_combobox.get().strip()
         if not texto:
             return
 
