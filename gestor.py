@@ -2,6 +2,7 @@ import json
 import os
 import platform
 import subprocess
+import tkinter as tk
 import customtkinter as ctk
 from tkinter import messagebox, filedialog
 from typing import List, Optional
@@ -179,7 +180,7 @@ class GestorAcademicoApp(ctk.CTk):
         # Sidebar Frame
         self.sidebar_frame = ctk.CTkFrame(self, width=200, corner_radius=0)
         self.sidebar_frame.grid(row=0, column=0, sticky="nsew")
-        self.sidebar_frame.grid_rowconfigure(8, weight=1)
+        self.sidebar_frame.grid_rowconfigure(9, weight=1)
 
         self.logo_label = ctk.CTkLabel(
             self.sidebar_frame, text="Gestor Académico",
@@ -187,47 +188,53 @@ class GestorAcademicoApp(ctk.CTk):
         )
         self.logo_label.grid(row=0, column=0, padx=20, pady=(20, 10))
 
+        self.btn_dashboard = ctk.CTkButton(
+            self.sidebar_frame, text="Reporte Progreso",
+            command=self.show_dashboard
+        )
+        self.btn_dashboard.grid(row=1, column=0, padx=20, pady=10)
+
         self.btn_agregar = ctk.CTkButton(
             self.sidebar_frame, text="1. Agregar Materia",
             command=self.show_agregar
         )
-        self.btn_agregar.grid(row=1, column=0, padx=20, pady=10)
+        self.btn_agregar.grid(row=2, column=0, padx=20, pady=10)
 
         self.btn_gestionar = ctk.CTkButton(
             self.sidebar_frame, text="2. Gestionar Materia",
             command=self.show_gestionar
         )
-        self.btn_gestionar.grid(row=2, column=0, padx=20, pady=10)
+        self.btn_gestionar.grid(row=3, column=0, padx=20, pady=10)
 
         self.btn_resumen = ctk.CTkButton(
             self.sidebar_frame, text="3. Ver Resumen",
             command=self.show_resumen
         )
-        self.btn_resumen.grid(row=3, column=0, padx=20, pady=10)
+        self.btn_resumen.grid(row=4, column=0, padx=20, pady=10)
 
         self.btn_eliminar = ctk.CTkButton(
             self.sidebar_frame, text="4. Eliminar Materia",
             command=self.show_eliminar
         )
-        self.btn_eliminar.grid(row=4, column=0, padx=20, pady=10)
+        self.btn_eliminar.grid(row=5, column=0, padx=20, pady=10)
 
         self.btn_exportar = ctk.CTkButton(
             self.sidebar_frame, text="5. Exportar Boletín",
             command=self.exportar
         )
-        self.btn_exportar.grid(row=5, column=0, padx=20, pady=10)
+        self.btn_exportar.grid(row=6, column=0, padx=20, pady=10)
 
         self.btn_buscar = ctk.CTkButton(
             self.sidebar_frame, text="6. Buscar Materia",
             command=self.show_buscar
         )
-        self.btn_buscar.grid(row=6, column=0, padx=20, pady=10)
+        self.btn_buscar.grid(row=7, column=0, padx=20, pady=10)
 
         self.btn_salir = ctk.CTkButton(
             self.sidebar_frame, text="7. Salir",
             command=self.destroy
         )
-        self.btn_salir.grid(row=7, column=0, padx=20, pady=10)
+        self.btn_salir.grid(row=8, column=0, padx=20, pady=10)
 
         # Main Frame
         self.main_frame = ctk.CTkFrame(self, corner_radius=10)
@@ -235,12 +242,215 @@ class GestorAcademicoApp(ctk.CTk):
         self.main_frame.grid_rowconfigure(0, weight=1)
         self.main_frame.grid_columnconfigure(0, weight=1)
 
-        self.show_resumen()
+        self.show_dashboard()
 
     def clear_main_frame(self) -> None:
         """Elimina todos los widgets del marco principal."""
         for widget in self.main_frame.winfo_children():
             widget.destroy()
+
+    def show_dashboard(self) -> None:
+        """Muestra la vista del Dashboard de Progreso."""
+        self.clear_main_frame()
+
+        # Título
+        title_label = ctk.CTkLabel(
+            self.main_frame,
+            text="REPORTE PROGRESO | SEMESTRE ACTUAL",
+            font=ctk.CTkFont(size=24, weight="bold")
+        )
+        title_label.grid(
+            row=0, column=0, columnspan=2, pady=(20, 30), sticky="n"
+        )
+
+        # Configurar la cuadrícula del main_frame para el dashboard
+        self.main_frame.grid_rowconfigure(0, weight=0)
+        self.main_frame.grid_rowconfigure(1, weight=1)
+        self.main_frame.grid_rowconfigure(2, weight=0)
+        self.main_frame.grid_columnconfigure(0, weight=1)
+        self.main_frame.grid_columnconfigure(1, weight=1)
+
+        self._build_dashboard_left_column()
+        self._build_dashboard_right_column()
+        self._build_dashboard_bottom_summary()
+
+    def _build_dashboard_left_column(self) -> None:
+        """Construye la columna izquierda del dashboard."""
+        left_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
+        left_frame.grid(row=1, column=0, sticky="nsew", padx=20, pady=10)
+
+        # Circular progress graph for overall average
+        promedio = calcular_promedio_general(self.semestre)
+
+        canvas_size = 150
+        theme = ctk.ThemeManager.theme["CTkFrame"]["fg_color"]
+        bg_color = self._apply_appearance_mode(theme)
+        canvas = tk.Canvas(
+            left_frame, width=canvas_size, height=canvas_size,
+            bg=bg_color,
+            highlightthickness=0
+        )
+        canvas.pack(pady=(0, 20))
+
+        # Draw background circle
+        canvas.create_oval(
+            10, 10, canvas_size-10, canvas_size-10,
+            outline="#333333", width=15
+        )
+
+        # Draw progress arc
+        extent = (promedio / 100) * 360 if promedio > 0 else 0
+        color = "#2FA572" if promedio >= 60 else "#E53935"
+        if extent > 0:
+            canvas.create_arc(
+                10, 10, canvas_size-10, canvas_size-10,
+                start=90, extent=-extent,
+                style=tk.ARC, outline=color, width=15
+            )
+
+        # Draw average text inside circle
+        text_fill = "white" if ctk.get_appearance_mode() == "Dark" else "black"
+        canvas.create_text(
+            canvas_size/2, canvas_size/2,
+            text=f"{promedio}",
+            fill=text_fill,
+            font=("Helvetica", 24, "bold")
+        )
+
+        # Grid of individual subject averages
+        subjects_frame = ctk.CTkScrollableFrame(left_frame, height=200)
+        subjects_frame.pack(fill="both", expand=True)
+
+        for i, materia in enumerate(self.semestre):
+            subj_frame = ctk.CTkFrame(subjects_frame)
+            subj_frame.pack(fill="x", pady=5, padx=5)
+
+            ctk.CTkLabel(
+                subj_frame, text=materia.nombre,
+                font=ctk.CTkFont(weight="bold")
+            ).pack(side="left", padx=10, pady=5)
+
+            color_text = (
+                "#2FA572" if materia.acumulado_notas >= materia.nota_minima
+                else "#E53935"
+            )
+            ctk.CTkLabel(
+                subj_frame, text=f"{round(materia.acumulado_notas, 2)}",
+                text_color=color_text, font=ctk.CTkFont(weight="bold")
+            ).pack(side="right", padx=10, pady=5)
+
+    def _build_dashboard_right_column(self) -> None:
+        """Construye la columna derecha del dashboard."""
+        right_frame = ctk.CTkScrollableFrame(
+            self.main_frame, fg_color="transparent"
+        )
+        right_frame.grid(row=1, column=1, sticky="nsew", padx=20, pady=10)
+
+        ctk.CTkLabel(
+            right_frame, text="PROGRESO POR MATERIA",
+            font=ctk.CTkFont(size=16, weight="bold")
+        ).pack(pady=(0, 15))
+
+        for materia in self.semestre:
+            mat_frame = ctk.CTkFrame(right_frame)
+            mat_frame.pack(fill="x", pady=10, padx=5)
+
+            # Nombre materia
+            ctk.CTkLabel(
+                mat_frame, text=materia.nombre,
+                font=ctk.CTkFont(weight="bold")
+            ).pack(anchor="w", padx=10, pady=(10, 0))
+
+            # Barra de progreso
+            progreso = materia.acumulado_notas / 100
+            progress_bar = ctk.CTkProgressBar(mat_frame, height=15)
+            progress_bar.pack(fill="x", padx=10, pady=10)
+            progress_bar.set(progreso if progreso <= 1 else 1)
+
+            if materia.acumulado_notas >= materia.nota_minima:
+                progress_bar.configure(progress_color="#2FA572")
+            else:
+                progress_bar.configure(progress_color="#3B8ED0")
+
+            # Textos de puntos
+            info_frame = ctk.CTkFrame(mat_frame, fg_color="transparent")
+            info_frame.pack(fill="x", padx=10, pady=(0, 10))
+
+            ganados = round(materia.acumulado_notas, 2)
+            faltantes = 100 - ganados
+            faltantes = 0 if faltantes < 0 else round(faltantes, 2)
+
+            ctk.CTkLabel(
+                info_frame, text=f"Puntaje: {ganados}/100",
+                text_color="#2FA572"
+            ).pack(side="left")
+
+            faltan_color = (
+                "#E53935" if ganados < materia.nota_minima else "gray"
+            )
+            ctk.CTkLabel(
+                info_frame, text=f"Faltan: {faltantes}",
+                text_color=faltan_color
+            ).pack(side="right")
+
+    def _build_dashboard_bottom_summary(self) -> None:
+        """Construye el resumen inferior del dashboard."""
+        bottom_frame = ctk.CTkFrame(self.main_frame, corner_radius=10)
+        bottom_frame.grid(
+            row=2, column=0, columnspan=2,
+            sticky="ew", padx=20, pady=(0, 20)
+        )
+
+        bottom_frame.grid_columnconfigure(0, weight=1)
+        bottom_frame.grid_columnconfigure(1, weight=1)
+        bottom_frame.grid_columnconfigure(2, weight=1)
+
+        # Metrics calculation
+        promedio = calcular_promedio_general(self.semestre)
+        materias_aprobadas = sum(
+            1 for m in self.semestre if m.acumulado_notas >= m.nota_minima
+        )
+        total_materias = len(self.semestre)
+        porcentaje_avance = (
+            round((materias_aprobadas / total_materias) * 100, 2)
+            if total_materias > 0 else 0
+        )
+
+        # CGPA Frame
+        cgpa_frame = ctk.CTkFrame(bottom_frame, fg_color="transparent")
+        cgpa_frame.grid(row=0, column=0, pady=15)
+        ctk.CTkLabel(
+            cgpa_frame, text="PROMEDIO GENERAL",
+            font=ctk.CTkFont(size=12, weight="bold"), text_color="gray"
+        ).pack()
+        ctk.CTkLabel(
+            cgpa_frame, text=f"{promedio}",
+            font=ctk.CTkFont(size=24, weight="bold")
+        ).pack()
+
+        # Passed Subjects Frame
+        passed_frame = ctk.CTkFrame(bottom_frame, fg_color="transparent")
+        passed_frame.grid(row=0, column=1, pady=15)
+        ctk.CTkLabel(
+            passed_frame, text="MATERIAS APROBADAS",
+            font=ctk.CTkFont(size=12, weight="bold"), text_color="gray"
+        ).pack()
+        ctk.CTkLabel(
+            passed_frame, text=f"{materias_aprobadas} / {total_materias}",
+            font=ctk.CTkFont(size=24, weight="bold")
+        ).pack()
+
+        # Overall Progress Frame
+        progress_frame = ctk.CTkFrame(bottom_frame, fg_color="transparent")
+        progress_frame.grid(row=0, column=2, pady=15)
+        ctk.CTkLabel(
+            progress_frame, text="AVANCE GENERAL",
+            font=ctk.CTkFont(size=12, weight="bold"), text_color="gray"
+        ).pack()
+        ctk.CTkLabel(
+            progress_frame, text=f"{porcentaje_avance}%",
+            font=ctk.CTkFont(size=24, weight="bold")
+        ).pack()
 
     def show_agregar(self) -> None:
         """Muestra la vista para agregar una materia."""
