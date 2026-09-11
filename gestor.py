@@ -859,28 +859,38 @@ class GestorAcademicoApp(ctk.CTk):
         """Muestra la vista para eliminar una materia."""
         self.set_active_view("eliminar")
         self.clear_main_frame()
+
+        form_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
+        form_frame.place(relx=0.5, rely=0.5, anchor="center")
+
         label = ctk.CTkLabel(
-            self.main_frame, text="Eliminar Materia",
-            font=ctk.CTkFont(size=24, weight="bold")
+            form_frame, text="Eliminar Materia",
+            font=("Helvetica", 24, "bold"), text_color=UI_COLORS["text_main"]
         )
-        label.pack(pady=20)
+        label.pack(pady=(0, 30))
 
         if not self.semestre:
             ctk.CTkLabel(
-                self.main_frame, text="No tienes materias registradas."
+                form_frame, text="No tienes materias registradas.",
+                text_color=UI_COLORS["text_secondary"]
             ).pack()
             return
 
         nombres_materias = [m.nombre for m in self.semestre]
         self.materia_del_combobox = ctk.CTkComboBox(
-            self.main_frame, values=nombres_materias, width=300
+            form_frame, values=nombres_materias,
+            width=350, height=45, corner_radius=10,
+            fg_color="#F8FAFC", border_color="#E2E8F0", border_width=2,
+            text_color=UI_COLORS["text_main"]
         )
         self.materia_del_combobox.pack(pady=10)
 
         btn = ctk.CTkButton(
-            self.main_frame, text="Eliminar",
+            form_frame, text="Eliminar",
             command=self.eliminar_materia_ui,
-            fg_color="red", hover_color="darkred"
+            width=350, height=45, corner_radius=10,
+            fg_color="#EF4444", hover_color="#DC2626",
+            font=("Helvetica", 14, "bold"), text_color="#FFFFFF"
         )
         btn.pack(pady=20)
 
@@ -945,33 +955,46 @@ class GestorAcademicoApp(ctk.CTk):
         """Muestra la vista para buscar una materia."""
         self.set_active_view("buscar")
         self.clear_main_frame()
+
+        form_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
+        form_frame.place(relx=0.5, rely=0.5, anchor="center")
+
         label = ctk.CTkLabel(
-            self.main_frame, text="Buscar Materia",
-            font=ctk.CTkFont(size=24, weight="bold")
+            form_frame, text="Buscar Materia",
+            font=("Helvetica", 24, "bold"), text_color=UI_COLORS["text_main"]
         )
-        label.pack(pady=20)
+        label.pack(pady=(0, 30))
 
         if not self.semestre:
             ctk.CTkLabel(
-                self.main_frame, text="No tienes materias registradas."
+                form_frame, text="No tienes materias registradas.",
+                text_color=UI_COLORS["text_secondary"]
             ).pack()
             return
 
         nombres_materias = [m.nombre for m in self.semestre]
         self.buscar_combobox = ctk.CTkComboBox(
-            self.main_frame, values=nombres_materias, width=300
+            form_frame, values=nombres_materias,
+            width=350, height=45, corner_radius=10,
+            fg_color="#F8FAFC", border_color="#E2E8F0", border_width=2,
+            text_color=UI_COLORS["text_main"]
         )
         self.buscar_combobox.pack(pady=10)
 
         btn = ctk.CTkButton(
-            self.main_frame, text="Buscar", command=self.realizar_busqueda
+            form_frame, text="Buscar", command=self.realizar_busqueda,
+            width=350, height=45, corner_radius=10,
+            fg_color=UI_COLORS["accent_blue"], hover_color="#2563EB",
+            font=("Helvetica", 14, "bold"), text_color="#FFFFFF"
         )
         btn.pack(pady=10)
 
         self.resultado_textbox = ctk.CTkTextbox(
-            self.main_frame, width=500, height=300
+            form_frame, width=350, height=150,
+            fg_color="#F8FAFC", border_color="#E2E8F0", border_width=2,
+            corner_radius=10, text_color=UI_COLORS["text_main"]
         )
-        self.resultado_textbox.pack(pady=10, fill="both", expand=True)
+        self.resultado_textbox.pack(pady=10)
 
     def realizar_busqueda(self) -> None:
         """Busca y muestra las materias en base al texto ingresado."""
