@@ -9,6 +9,17 @@ from typing import List, Optional
 
 ARCHIVO_DATOS = "datos.json"
 
+UI_COLORS = {
+    "bg_app": "#F4F7FC",
+    "bg_sidebar": "#D6E4FF",
+    "bg_card": "#FFFFFF",
+    "bg_grid_item": "#EEF2F6",
+    "text_main": "#1E293B",
+    "text_secondary": "#64748B",
+    "accent_blue": "#3B82F6",
+    "progress_track": "#E2E8F0"
+}
+
 
 class Materia:
     """Clase que representa una materia académica y su progreso."""
@@ -178,67 +189,79 @@ class GestorAcademicoApp(ctk.CTk):
         self.grid_columnconfigure(1, weight=1)
 
         # Sidebar Frame
-        self.sidebar_frame = ctk.CTkFrame(self, width=200, corner_radius=0)
+        self.sidebar_frame = ctk.CTkFrame(
+            self, width=200, corner_radius=0,
+            fg_color=UI_COLORS["bg_sidebar"]
+        )
         self.sidebar_frame.grid(row=0, column=0, sticky="nsew")
         self.sidebar_frame.grid_rowconfigure(9, weight=1)
 
         self.logo_label = ctk.CTkLabel(
             self.sidebar_frame, text="Gestor Académico",
-            font=ctk.CTkFont(size=20, weight="bold")
+            font=ctk.CTkFont(size=20, weight="bold"),
+            text_color=UI_COLORS["text_main"]
         )
         self.logo_label.grid(row=0, column=0, padx=20, pady=(20, 10))
 
-        self.btn_dashboard = ctk.CTkButton(
-            self.sidebar_frame, text="Reporte Progreso",
-            command=self.show_dashboard
-        )
-        self.btn_dashboard.grid(row=1, column=0, padx=20, pady=10)
+        # Helper para botones del sidebar
+        def create_sidebar_btn(parent, text, command, active=False):
+            fg = "#FFFFFF" if active else "transparent"
+            corner = 10 if active else 0
+            font = ("Helvetica", 12, "bold") if active else ("Helvetica", 12)
+            btn = ctk.CTkButton(
+                parent, text=text, command=command,
+                fg_color=fg, text_color=UI_COLORS["text_main"],
+                font=font, anchor="w", corner_radius=corner,
+                hover_color="#FFFFFF" if active else "rgba(255,255,255,0.3)"
+            )
+            return btn
 
-        self.btn_agregar = ctk.CTkButton(
-            self.sidebar_frame, text="1. Agregar Materia",
-            command=self.show_agregar
+        self.btn_dashboard = create_sidebar_btn(
+            self.sidebar_frame, "Reporte Progreso",
+            self.show_dashboard, active=True
         )
-        self.btn_agregar.grid(row=2, column=0, padx=20, pady=10)
+        self.btn_dashboard.grid(
+            row=1, column=0, padx=20, pady=10, sticky="ew"
+        )
 
-        self.btn_gestionar = ctk.CTkButton(
-            self.sidebar_frame, text="2. Gestionar Materia",
-            command=self.show_gestionar
+        self.btn_agregar = create_sidebar_btn(
+            self.sidebar_frame, "1. Agregar Materia", self.show_agregar
         )
-        self.btn_gestionar.grid(row=3, column=0, padx=20, pady=10)
+        self.btn_agregar.grid(row=2, column=0, padx=20, pady=10, sticky="ew")
 
-        self.btn_resumen = ctk.CTkButton(
-            self.sidebar_frame, text="3. Ver Resumen",
-            command=self.show_resumen
+        self.btn_gestionar = create_sidebar_btn(
+            self.sidebar_frame, "2. Gestionar Materia", self.show_gestionar
         )
-        self.btn_resumen.grid(row=4, column=0, padx=20, pady=10)
+        self.btn_gestionar.grid(row=3, column=0, padx=20, pady=10, sticky="ew")
 
-        self.btn_eliminar = ctk.CTkButton(
-            self.sidebar_frame, text="4. Eliminar Materia",
-            command=self.show_eliminar
+        self.btn_resumen = create_sidebar_btn(
+            self.sidebar_frame, "3. Ver Resumen", self.show_resumen
         )
-        self.btn_eliminar.grid(row=5, column=0, padx=20, pady=10)
+        self.btn_resumen.grid(row=4, column=0, padx=20, pady=10, sticky="ew")
 
-        self.btn_exportar = ctk.CTkButton(
-            self.sidebar_frame, text="5. Exportar Boletín",
-            command=self.exportar
+        self.btn_eliminar = create_sidebar_btn(
+            self.sidebar_frame, "4. Eliminar Materia", self.show_eliminar
         )
-        self.btn_exportar.grid(row=6, column=0, padx=20, pady=10)
+        self.btn_eliminar.grid(row=5, column=0, padx=20, pady=10, sticky="ew")
 
-        self.btn_buscar = ctk.CTkButton(
-            self.sidebar_frame, text="6. Buscar Materia",
-            command=self.show_buscar
+        self.btn_exportar = create_sidebar_btn(
+            self.sidebar_frame, "5. Exportar Boletín", self.exportar
         )
-        self.btn_buscar.grid(row=7, column=0, padx=20, pady=10)
+        self.btn_exportar.grid(row=6, column=0, padx=20, pady=10, sticky="ew")
 
-        self.btn_salir = ctk.CTkButton(
-            self.sidebar_frame, text="7. Salir",
-            command=self.destroy
+        self.btn_buscar = create_sidebar_btn(
+            self.sidebar_frame, "6. Buscar Materia", self.show_buscar
         )
-        self.btn_salir.grid(row=8, column=0, padx=20, pady=10)
+        self.btn_buscar.grid(row=7, column=0, padx=20, pady=10, sticky="ew")
+
+        self.btn_salir = create_sidebar_btn(
+            self.sidebar_frame, "7. Salir", self.destroy
+        )
+        self.btn_salir.grid(row=8, column=0, padx=20, pady=10, sticky="ew")
 
         # Main Frame
         self.main_frame = ctk.CTkFrame(
-            self, corner_radius=10, fg_color="#F0F4F8"
+            self, corner_radius=10, fg_color=UI_COLORS["bg_app"]
         )
         self.main_frame.grid(row=0, column=1, padx=20, pady=20, sticky="nsew")
         self.main_frame.grid_rowconfigure(0, weight=1)
@@ -259,7 +282,8 @@ class GestorAcademicoApp(ctk.CTk):
         title_label = ctk.CTkLabel(
             self.main_frame,
             text="REPORTE PROGRESO | SEMESTRE ACTUAL",
-            font=ctk.CTkFont(size=24, weight="bold")
+            font=("Helvetica", 24, "bold"),
+            text_color=UI_COLORS["text_main"]
         )
         title_label.grid(
             row=0, column=0, columnspan=2, pady=(20, 30), sticky="n"
@@ -279,7 +303,7 @@ class GestorAcademicoApp(ctk.CTk):
     def _build_dashboard_left_column(self) -> None:
         """Construye la columna izquierda del dashboard."""
         left_frame = ctk.CTkFrame(
-            self.main_frame, fg_color="#FFFFFF", corner_radius=15
+            self.main_frame, fg_color=UI_COLORS["bg_card"], corner_radius=15
         )
         left_frame.grid(
             row=1, column=0, sticky="nsew", padx=(20, 10), pady=10,
@@ -292,7 +316,7 @@ class GestorAcademicoApp(ctk.CTk):
         canvas_size = 150
         canvas = tk.Canvas(
             left_frame, width=canvas_size, height=canvas_size,
-            bg="#FFFFFF",
+            bg=UI_COLORS["bg_card"],
             highlightthickness=0
         )
         canvas.pack(pady=(0, 20))
@@ -300,12 +324,12 @@ class GestorAcademicoApp(ctk.CTk):
         # Draw background circle
         canvas.create_oval(
             15, 15, canvas_size-15, canvas_size-15,
-            outline="#E5E7EB", width=15
+            outline=UI_COLORS["progress_track"], width=15
         )
 
         # Draw progress arc
         extent = (promedio / 100) * 360 if promedio > 0 else 0
-        color = "#3B82F6"
+        color = UI_COLORS["accent_blue"]
         if extent > 0:
             canvas.create_arc(
                 15, 15, canvas_size-15, canvas_size-15,
@@ -317,7 +341,7 @@ class GestorAcademicoApp(ctk.CTk):
         canvas.create_text(
             canvas_size/2, canvas_size/2,
             text=f"{promedio}%",
-            fill="black",
+            fill=UI_COLORS["text_main"],
             font=("Helvetica", 24, "bold")
         )
 
@@ -336,7 +360,8 @@ class GestorAcademicoApp(ctk.CTk):
             col = i % 2
 
             subj_frame = ctk.CTkFrame(
-                subjects_frame, fg_color="#F3F4F6", corner_radius=10
+                subjects_frame, fg_color=UI_COLORS["bg_grid_item"],
+                corner_radius=10
             )
             subj_frame.grid(
                 row=row, column=col, sticky="nsew", padx=5, pady=5,
@@ -345,7 +370,8 @@ class GestorAcademicoApp(ctk.CTk):
 
             ctk.CTkLabel(
                 subj_frame, text=materia.nombre,
-                font=("Helvetica", 11, "bold"), text_color="black"
+                font=("Helvetica", 11, "bold"),
+                text_color=UI_COLORS["text_main"]
             ).pack(anchor="w", padx=10, pady=(5, 0))
 
             color_text = (
@@ -360,7 +386,7 @@ class GestorAcademicoApp(ctk.CTk):
     def _build_dashboard_right_column(self) -> None:
         """Construye la columna derecha del dashboard."""
         right_frame = ctk.CTkScrollableFrame(
-            self.main_frame, fg_color="#FFFFFF", corner_radius=15
+            self.main_frame, fg_color=UI_COLORS["bg_card"], corner_radius=15
         )
         right_frame.grid(
             row=1, column=1, sticky="nsew", padx=(10, 20), pady=10,
@@ -369,7 +395,7 @@ class GestorAcademicoApp(ctk.CTk):
 
         ctk.CTkLabel(
             right_frame, text="PROGRESO POR MATERIA",
-            font=("Helvetica", 12, "bold"), text_color="black"
+            font=("Helvetica", 12, "bold"), text_color=UI_COLORS["text_main"]
         ).pack(pady=(0, 15), anchor="w")
 
         for materia in self.semestre:
@@ -379,14 +405,16 @@ class GestorAcademicoApp(ctk.CTk):
             # Nombre materia
             ctk.CTkLabel(
                 mat_frame, text=materia.nombre,
-                font=("Helvetica", 11, "bold"), text_color="black"
+                font=("Helvetica", 11, "bold"),
+                text_color=UI_COLORS["text_main"]
             ).pack(anchor="w", padx=5, pady=(5, 0))
 
             # Barra de progreso
             progreso = materia.acumulado_notas / 100
             progress_bar = ctk.CTkProgressBar(
                 mat_frame, height=12,
-                fg_color="#E5E7EB", progress_color="#3B82F6",
+                fg_color=UI_COLORS["progress_track"],
+                progress_color=UI_COLORS["accent_blue"],
                 border_width=0
             )
             progress_bar.pack(fill="x", padx=5, pady=5)
@@ -416,7 +444,7 @@ class GestorAcademicoApp(ctk.CTk):
     def _build_dashboard_bottom_summary(self) -> None:
         """Construye el resumen inferior del dashboard."""
         bottom_frame = ctk.CTkFrame(
-            self.main_frame, fg_color="#FFFFFF", corner_radius=15
+            self.main_frame, fg_color=UI_COLORS["bg_card"], corner_radius=15
         )
         bottom_frame.grid(
             row=2, column=0, columnspan=2,
@@ -444,11 +472,11 @@ class GestorAcademicoApp(ctk.CTk):
         cgpa_frame.grid(row=0, column=0, pady=15)
         ctk.CTkLabel(
             cgpa_frame, text="PROMEDIO GENERAL",
-            font=("Helvetica", 11), text_color="gray"
+            font=("Helvetica", 11), text_color=UI_COLORS["text_secondary"]
         ).pack()
         ctk.CTkLabel(
             cgpa_frame, text=f"{promedio}",
-            font=("Helvetica", 24, "bold"), text_color="black"
+            font=("Helvetica", 24, "bold"), text_color=UI_COLORS["text_main"]
         ).pack()
 
         # Passed Subjects Frame
@@ -456,11 +484,11 @@ class GestorAcademicoApp(ctk.CTk):
         passed_frame.grid(row=0, column=1, pady=15)
         ctk.CTkLabel(
             passed_frame, text="MATERIAS APROBADAS",
-            font=("Helvetica", 11), text_color="gray"
+            font=("Helvetica", 11), text_color=UI_COLORS["text_secondary"]
         ).pack()
         ctk.CTkLabel(
             passed_frame, text=f"{materias_aprobadas} / {total_materias}",
-            font=("Helvetica", 24, "bold"), text_color="black"
+            font=("Helvetica", 24, "bold"), text_color=UI_COLORS["text_main"]
         ).pack()
 
         # Overall Progress Frame
@@ -468,11 +496,11 @@ class GestorAcademicoApp(ctk.CTk):
         progress_frame.grid(row=0, column=2, pady=15)
         ctk.CTkLabel(
             progress_frame, text="AVANCE GENERAL",
-            font=("Helvetica", 11), text_color="gray"
+            font=("Helvetica", 11), text_color=UI_COLORS["text_secondary"]
         ).pack()
         ctk.CTkLabel(
             progress_frame, text=f"{porcentaje_avance}%",
-            font=("Helvetica", 24, "bold"), text_color="black"
+            font=("Helvetica", 24, "bold"), text_color=UI_COLORS["text_main"]
         ).pack()
 
     def show_agregar(self) -> None:
