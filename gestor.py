@@ -237,7 +237,9 @@ class GestorAcademicoApp(ctk.CTk):
         self.btn_salir.grid(row=8, column=0, padx=20, pady=10)
 
         # Main Frame
-        self.main_frame = ctk.CTkFrame(self, corner_radius=10)
+        self.main_frame = ctk.CTkFrame(
+            self, corner_radius=10, fg_color="#F0F4F8"
+        )
         self.main_frame.grid(row=0, column=1, padx=20, pady=20, sticky="nsew")
         self.main_frame.grid_rowconfigure(0, weight=1)
         self.main_frame.grid_columnconfigure(0, weight=1)
@@ -276,59 +278,75 @@ class GestorAcademicoApp(ctk.CTk):
 
     def _build_dashboard_left_column(self) -> None:
         """Construye la columna izquierda del dashboard."""
-        left_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
-        left_frame.grid(row=1, column=0, sticky="nsew", padx=20, pady=10)
+        left_frame = ctk.CTkFrame(
+            self.main_frame, fg_color="#FFFFFF", corner_radius=15
+        )
+        left_frame.grid(
+            row=1, column=0, sticky="nsew", padx=(20, 10), pady=10,
+            ipadx=25, ipady=25
+        )
 
         # Circular progress graph for overall average
         promedio = calcular_promedio_general(self.semestre)
 
         canvas_size = 150
-        theme = ctk.ThemeManager.theme["CTkFrame"]["fg_color"]
-        bg_color = self._apply_appearance_mode(theme)
         canvas = tk.Canvas(
             left_frame, width=canvas_size, height=canvas_size,
-            bg=bg_color,
+            bg="#FFFFFF",
             highlightthickness=0
         )
         canvas.pack(pady=(0, 20))
 
         # Draw background circle
         canvas.create_oval(
-            10, 10, canvas_size-10, canvas_size-10,
-            outline="#333333", width=15
+            15, 15, canvas_size-15, canvas_size-15,
+            outline="#E5E7EB", width=15
         )
 
         # Draw progress arc
         extent = (promedio / 100) * 360 if promedio > 0 else 0
-        color = "#2FA572" if promedio >= 60 else "#E53935"
+        color = "#3B82F6"
         if extent > 0:
             canvas.create_arc(
-                10, 10, canvas_size-10, canvas_size-10,
+                15, 15, canvas_size-15, canvas_size-15,
                 start=90, extent=-extent,
                 style=tk.ARC, outline=color, width=15
             )
 
         # Draw average text inside circle
-        text_fill = "white" if ctk.get_appearance_mode() == "Dark" else "black"
         canvas.create_text(
             canvas_size/2, canvas_size/2,
-            text=f"{promedio}",
-            fill=text_fill,
+            text=f"{promedio}%",
+            fill="black",
             font=("Helvetica", 24, "bold")
         )
 
         # Grid of individual subject averages
-        subjects_frame = ctk.CTkScrollableFrame(left_frame, height=200)
+        subjects_frame = ctk.CTkScrollableFrame(
+            left_frame, height=200, fg_color="transparent"
+        )
         subjects_frame.pack(fill="both", expand=True)
 
+        # 2-column grid configuration
+        subjects_frame.grid_columnconfigure(0, weight=1)
+        subjects_frame.grid_columnconfigure(1, weight=1)
+
         for i, materia in enumerate(self.semestre):
-            subj_frame = ctk.CTkFrame(subjects_frame)
-            subj_frame.pack(fill="x", pady=5, padx=5)
+            row = i // 2
+            col = i % 2
+
+            subj_frame = ctk.CTkFrame(
+                subjects_frame, fg_color="#F3F4F6", corner_radius=10
+            )
+            subj_frame.grid(
+                row=row, column=col, sticky="nsew", padx=5, pady=5,
+                ipadx=5, ipady=5
+            )
 
             ctk.CTkLabel(
                 subj_frame, text=materia.nombre,
-                font=ctk.CTkFont(weight="bold")
-            ).pack(side="left", padx=10, pady=5)
+                font=("Helvetica", 11, "bold"), text_color="black"
+            ).pack(anchor="w", padx=10, pady=(5, 0))
 
             color_text = (
                 "#2FA572" if materia.acumulado_notas >= materia.nota_minima
@@ -336,45 +354,47 @@ class GestorAcademicoApp(ctk.CTk):
             )
             ctk.CTkLabel(
                 subj_frame, text=f"{round(materia.acumulado_notas, 2)}",
-                text_color=color_text, font=ctk.CTkFont(weight="bold")
-            ).pack(side="right", padx=10, pady=5)
+                text_color=color_text, font=("Helvetica", 14, "bold")
+            ).pack(anchor="w", padx=10, pady=(0, 5))
 
     def _build_dashboard_right_column(self) -> None:
         """Construye la columna derecha del dashboard."""
         right_frame = ctk.CTkScrollableFrame(
-            self.main_frame, fg_color="transparent"
+            self.main_frame, fg_color="#FFFFFF", corner_radius=15
         )
-        right_frame.grid(row=1, column=1, sticky="nsew", padx=20, pady=10)
+        right_frame.grid(
+            row=1, column=1, sticky="nsew", padx=(10, 20), pady=10,
+            ipadx=25, ipady=25
+        )
 
         ctk.CTkLabel(
             right_frame, text="PROGRESO POR MATERIA",
-            font=ctk.CTkFont(size=16, weight="bold")
-        ).pack(pady=(0, 15))
+            font=("Helvetica", 12, "bold"), text_color="black"
+        ).pack(pady=(0, 15), anchor="w")
 
         for materia in self.semestre:
-            mat_frame = ctk.CTkFrame(right_frame)
-            mat_frame.pack(fill="x", pady=10, padx=5)
+            mat_frame = ctk.CTkFrame(right_frame, fg_color="transparent")
+            mat_frame.pack(fill="x", pady=5, padx=5)
 
             # Nombre materia
             ctk.CTkLabel(
                 mat_frame, text=materia.nombre,
-                font=ctk.CTkFont(weight="bold")
-            ).pack(anchor="w", padx=10, pady=(10, 0))
+                font=("Helvetica", 11, "bold"), text_color="black"
+            ).pack(anchor="w", padx=5, pady=(5, 0))
 
             # Barra de progreso
             progreso = materia.acumulado_notas / 100
-            progress_bar = ctk.CTkProgressBar(mat_frame, height=15)
-            progress_bar.pack(fill="x", padx=10, pady=10)
+            progress_bar = ctk.CTkProgressBar(
+                mat_frame, height=12,
+                fg_color="#E5E7EB", progress_color="#3B82F6",
+                border_width=0
+            )
+            progress_bar.pack(fill="x", padx=5, pady=5)
             progress_bar.set(progreso if progreso <= 1 else 1)
-
-            if materia.acumulado_notas >= materia.nota_minima:
-                progress_bar.configure(progress_color="#2FA572")
-            else:
-                progress_bar.configure(progress_color="#3B8ED0")
 
             # Textos de puntos
             info_frame = ctk.CTkFrame(mat_frame, fg_color="transparent")
-            info_frame.pack(fill="x", padx=10, pady=(0, 10))
+            info_frame.pack(fill="x", padx=5, pady=(0, 5))
 
             ganados = round(materia.acumulado_notas, 2)
             faltantes = 100 - ganados
@@ -382,7 +402,7 @@ class GestorAcademicoApp(ctk.CTk):
 
             ctk.CTkLabel(
                 info_frame, text=f"Puntaje: {ganados}/100",
-                text_color="#2FA572"
+                text_color="#2FA572", font=("Helvetica", 11)
             ).pack(side="left")
 
             faltan_color = (
@@ -390,15 +410,18 @@ class GestorAcademicoApp(ctk.CTk):
             )
             ctk.CTkLabel(
                 info_frame, text=f"Faltan: {faltantes}",
-                text_color=faltan_color
+                text_color=faltan_color, font=("Helvetica", 11)
             ).pack(side="right")
 
     def _build_dashboard_bottom_summary(self) -> None:
         """Construye el resumen inferior del dashboard."""
-        bottom_frame = ctk.CTkFrame(self.main_frame, corner_radius=10)
+        bottom_frame = ctk.CTkFrame(
+            self.main_frame, fg_color="#FFFFFF", corner_radius=15
+        )
         bottom_frame.grid(
             row=2, column=0, columnspan=2,
-            sticky="ew", padx=20, pady=(0, 20)
+            sticky="ew", padx=20, pady=(10, 20),
+            ipadx=25, ipady=25
         )
 
         bottom_frame.grid_columnconfigure(0, weight=1)
@@ -421,11 +444,11 @@ class GestorAcademicoApp(ctk.CTk):
         cgpa_frame.grid(row=0, column=0, pady=15)
         ctk.CTkLabel(
             cgpa_frame, text="PROMEDIO GENERAL",
-            font=ctk.CTkFont(size=12, weight="bold"), text_color="gray"
+            font=("Helvetica", 11), text_color="gray"
         ).pack()
         ctk.CTkLabel(
             cgpa_frame, text=f"{promedio}",
-            font=ctk.CTkFont(size=24, weight="bold")
+            font=("Helvetica", 24, "bold"), text_color="black"
         ).pack()
 
         # Passed Subjects Frame
@@ -433,11 +456,11 @@ class GestorAcademicoApp(ctk.CTk):
         passed_frame.grid(row=0, column=1, pady=15)
         ctk.CTkLabel(
             passed_frame, text="MATERIAS APROBADAS",
-            font=ctk.CTkFont(size=12, weight="bold"), text_color="gray"
+            font=("Helvetica", 11), text_color="gray"
         ).pack()
         ctk.CTkLabel(
             passed_frame, text=f"{materias_aprobadas} / {total_materias}",
-            font=ctk.CTkFont(size=24, weight="bold")
+            font=("Helvetica", 24, "bold"), text_color="black"
         ).pack()
 
         # Overall Progress Frame
@@ -445,11 +468,11 @@ class GestorAcademicoApp(ctk.CTk):
         progress_frame.grid(row=0, column=2, pady=15)
         ctk.CTkLabel(
             progress_frame, text="AVANCE GENERAL",
-            font=ctk.CTkFont(size=12, weight="bold"), text_color="gray"
+            font=("Helvetica", 11), text_color="gray"
         ).pack()
         ctk.CTkLabel(
             progress_frame, text=f"{porcentaje_avance}%",
-            font=ctk.CTkFont(size=24, weight="bold")
+            font=("Helvetica", 24, "bold"), text_color="black"
         ).pack()
 
     def show_agregar(self) -> None:
