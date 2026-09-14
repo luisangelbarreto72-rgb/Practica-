@@ -30,6 +30,7 @@ class Materia:
         self.nota_minima = nota_minima
         self.acumulado_notas = 0.0
         self.puntos_totales_evaluados = 0.0
+        self.evaluaciones = []
 
     def registrar_evaluacion(
         self,
@@ -40,6 +41,28 @@ class Materia:
         """Registra una nueva evaluación y suma los puntos."""
         self.acumulado_notas += puntos_ganados
         self.puntos_totales_evaluados += puntos_totales_prueba
+        self.evaluaciones.append({
+            "nombre": nombre_evaluacion,
+            "puntos_ganados": puntos_ganados,
+            "puntos_totales_prueba": puntos_totales_prueba
+        })
+
+    def editar_evaluacion(
+        self,
+        nombre_evaluacion: str,
+        nuevos_puntos_ganados: float
+    ) -> bool:
+        """Edita una evaluación existente y recalcula los acumulados."""
+        for eval_data in self.evaluaciones:
+            if eval_data["nombre"].lower() == nombre_evaluacion.lower():
+                # Remove the old points
+                self.acumulado_notas -= eval_data["puntos_ganados"]
+                # Add the new points
+                self.acumulado_notas += nuevos_puntos_ganados
+                # Update the evaluation record
+                eval_data["puntos_ganados"] = nuevos_puntos_ganados
+                return True
+        return False
 
     def obtener_estado(self) -> str:
         """Genera un reporte formateado del progreso actual de la materia."""
@@ -72,7 +95,8 @@ class Materia:
             "nombre": self.nombre,
             "nota_minima": self.nota_minima,
             "acumulado_notas": self.acumulado_notas,
-            "puntos_totales_evaluados": self.puntos_totales_evaluados
+            "puntos_totales_evaluados": self.puntos_totales_evaluados,
+            "evaluaciones": self.evaluaciones
         }
 
     @classmethod
@@ -84,6 +108,7 @@ class Materia:
             materia.puntos_totales_evaluados = data.get(
                 "puntos_totales_evaluados", 0.0
             )
+            materia.evaluaciones = data.get("evaluaciones", [])
             return materia
         except KeyError:
             return None
@@ -195,7 +220,7 @@ class GestorAcademicoApp(ctk.CTk):
             fg_color=UI_COLORS["bg_sidebar"]
         )
         self.sidebar_frame.grid(row=0, column=0, sticky="nsew")
-        self.sidebar_frame.grid_rowconfigure(9, weight=1)
+        self.sidebar_frame.grid_rowconfigure(10, weight=1)
 
         self.logo_label = ctk.CTkLabel(
             self.sidebar_frame, text="Gestor Académico",
@@ -221,30 +246,35 @@ class GestorAcademicoApp(ctk.CTk):
         )
         self.btn_gestionar.grid(row=3, column=0, padx=20, pady=10, sticky="ew")
 
+        self.btn_editar = self._create_sidebar_btn(
+            "✏️ Editar Nota", self.show_editar, "editar"
+        )
+        self.btn_editar.grid(row=4, column=0, padx=20, pady=10, sticky="ew")
+
         self.btn_resumen = self._create_sidebar_btn(
             "📄 Ver Resumen", self.show_resumen, "resumen"
         )
-        self.btn_resumen.grid(row=4, column=0, padx=20, pady=10, sticky="ew")
+        self.btn_resumen.grid(row=5, column=0, padx=20, pady=10, sticky="ew")
 
         self.btn_eliminar = self._create_sidebar_btn(
             "🗑️ Eliminar Materia", self.show_eliminar, "eliminar"
         )
-        self.btn_eliminar.grid(row=5, column=0, padx=20, pady=10, sticky="ew")
+        self.btn_eliminar.grid(row=6, column=0, padx=20, pady=10, sticky="ew")
 
         self.btn_exportar = self._create_sidebar_btn(
             "📤 Exportar Boletín", self.exportar, "exportar"
         )
-        self.btn_exportar.grid(row=6, column=0, padx=20, pady=10, sticky="ew")
+        self.btn_exportar.grid(row=7, column=0, padx=20, pady=10, sticky="ew")
 
         self.btn_buscar = self._create_sidebar_btn(
             "🔍 Buscar Materia", self.show_buscar, "buscar"
         )
-        self.btn_buscar.grid(row=7, column=0, padx=20, pady=10, sticky="ew")
+        self.btn_buscar.grid(row=8, column=0, padx=20, pady=10, sticky="ew")
 
         self.btn_salir = self._create_sidebar_btn(
             "❌ Salir", self.destroy, "salir"
         )
-        self.btn_salir.grid(row=8, column=0, padx=20, pady=10, sticky="ew")
+        self.btn_salir.grid(row=9, column=0, padx=20, pady=10, sticky="ew")
 
         # Main Frame
         self.main_frame = ctk.CTkFrame(
@@ -579,6 +609,137 @@ class GestorAcademicoApp(ctk.CTk):
         guardar_datos(self.semestre)
         messagebox.showinfo("Éxito", f"'{nombre}' se ha agregado con éxito.")
         self.nombre_materia_entry.delete(0, 'end')
+
+    def show_editar(self) -> None:
+        """Muestra la vista para editar una nota existente."""
+        self.set_active_view("editar")
+        self.clear_main_frame()
+
+        form_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
+        form_frame.place(relx=0.5, rely=0.5, anchor="center")
+
+        label = ctk.CTkLabel(
+            form_frame, text="Editar Evaluación",
+            font=("Helvetica", 24, "bold"), text_color=UI_COLORS["text_main"]
+        )
+        label.pack(pady=(0, 20))
+
+        if not self.semestre:
+            ctk.CTkLabel(
+                form_frame, text="No tienes materias registradas.",
+                text_color=UI_COLORS["text_secondary"]
+            ).pack()
+            return
+
+        nombres_materias = [m.nombre for m in self.semestre]
+
+        # Helper to update eval combobox
+        def on_materia_change(choice: str):
+            materia = next(
+                (m for m in self.semestre if m.nombre == choice), None
+            )
+            if (materia and hasattr(materia, "evaluaciones") and
+                    materia.evaluaciones):
+                eval_nombres = [e["nombre"] for e in materia.evaluaciones]
+                self.eval_del_combobox.configure(values=eval_nombres)
+                self.eval_del_combobox.set(eval_nombres[0])
+            else:
+                self.eval_del_combobox.configure(
+                    values=["No hay evaluaciones"]
+                )
+                self.eval_del_combobox.set("No hay evaluaciones")
+
+        self.materia_edit_combobox = ctk.CTkComboBox(
+            form_frame, values=nombres_materias,
+            width=350, height=45, corner_radius=10,
+            fg_color="#F8FAFC", border_color="#E2E8F0", border_width=2,
+            text_color=UI_COLORS["text_main"],
+            command=on_materia_change
+        )
+        self.materia_edit_combobox.pack(pady=10)
+
+        self.eval_del_combobox = ctk.CTkComboBox(
+            form_frame, values=["Selecciona una materia primero"],
+            width=350, height=45, corner_radius=10,
+            fg_color="#F8FAFC", border_color="#E2E8F0", border_width=2,
+            text_color=UI_COLORS["text_main"]
+        )
+        self.eval_del_combobox.pack(pady=10)
+
+        # Trigger initial population
+        on_materia_change(nombres_materias[0])
+
+        self.nuevos_puntos_entry = ctk.CTkEntry(
+            form_frame, placeholder_text="⭐ Nuevos puntos ganados",
+            width=350, height=45, corner_radius=10,
+            fg_color="#F8FAFC", border_color="#E2E8F0", border_width=2,
+            text_color=UI_COLORS["text_main"]
+        )
+        self.nuevos_puntos_entry.pack(pady=10)
+
+        btn = ctk.CTkButton(
+            form_frame, text="Actualizar Nota",
+            command=self.actualizar_nota_ui,
+            width=350, height=45, fg_color="#F59E0B",
+            hover_color="#D97706", font=("Helvetica", 14, "bold"),
+            text_color="#FFFFFF", corner_radius=10
+        )
+        btn.pack(pady=20)
+
+    def actualizar_nota_ui(self) -> None:
+        """Helper for Actualizar Nota logic."""
+        nombre_materia = self.materia_edit_combobox.get()
+        nombre_eval = self.eval_del_combobox.get()
+
+        if nombre_eval == "No hay evaluaciones" or not nombre_eval:
+            messagebox.showwarning(
+                "Error", "Selecciona una evaluación válida."
+            )
+            return
+
+        materia = next(
+            (m for m in self.semestre if m.nombre == nombre_materia), None
+        )
+        if not materia:
+            messagebox.showwarning("Error", "Materia no encontrada.")
+            return
+
+        try:
+            nuevos_ptos = float(self.nuevos_puntos_entry.get())
+            if nuevos_ptos < 0:
+                messagebox.showwarning(
+                    "Error", "Los puntos ganados no pueden ser negativos."
+                )
+                return
+
+            # Check if points exceed maximum allowed points for that evaluation
+            eval_data = next(
+                (e for e in materia.evaluaciones
+                 if e["nombre"] == nombre_eval), None
+            )
+
+            if eval_data and nuevos_ptos > eval_data["puntos_totales_prueba"]:
+                messagebox.showwarning(
+                    "Error", "Los nuevos puntos no pueden superar el total."
+                )
+                return
+
+            exito = materia.editar_evaluacion(nombre_eval, nuevos_ptos)
+            if exito:
+                guardar_datos(self.semestre)
+                messagebox.showinfo(
+                    "Éxito", "¡Nota actualizada exitosamente!"
+                )
+                self.nuevos_puntos_entry.delete(0, 'end')
+            else:
+                messagebox.showwarning(
+                    "Error", "No se encontró la evaluación."
+                )
+
+        except ValueError:
+            messagebox.showwarning(
+                "Error", "Debes ingresar números válidos para los puntos."
+            )
 
     def show_gestionar(self) -> None:
         """Muestra la vista para gestionar evaluaciones de una materia."""
