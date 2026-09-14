@@ -64,6 +64,18 @@ class Materia:
                 return True
         return False
 
+    def eliminar_evaluacion(self, nombre_evaluacion: str) -> bool:
+        """Elimina una evaluación y recalcula los acumulados."""
+        for eval_data in self.evaluaciones:
+            if eval_data["nombre"].lower() == nombre_evaluacion.lower():
+                self.acumulado_notas -= eval_data["puntos_ganados"]
+                self.puntos_totales_evaluados -= eval_data[
+                    "puntos_totales_prueba"
+                ]
+                self.evaluaciones.remove(eval_data)
+                return True
+        return False
+
     def obtener_estado(self) -> str:
         """Genera un reporte formateado del progreso actual de la materia."""
         ptos_ev = self.puntos_totales_evaluados
@@ -619,7 +631,7 @@ class GestorAcademicoApp(ctk.CTk):
         form_frame.place(relx=0.5, rely=0.5, anchor="center")
 
         label = ctk.CTkLabel(
-            form_frame, text="Editar Evaluación",
+            form_frame, text="Gestionar Evaluación Específica",
             font=("Helvetica", 24, "bold"), text_color=UI_COLORS["text_main"]
         )
         label.pack(pady=(0, 20))
@@ -684,7 +696,58 @@ class GestorAcademicoApp(ctk.CTk):
             hover_color="#D97706", font=("Helvetica", 14, "bold"),
             text_color="#FFFFFF", corner_radius=10
         )
-        btn.pack(pady=20)
+        btn.pack(pady=(20, 0))
+
+        btn_eliminar = ctk.CTkButton(
+            form_frame, text="🗑️ Eliminar Nota",
+            command=self.eliminar_nota_ui,
+            width=350, height=45, corner_radius=10,
+            fg_color="#EF4444", hover_color="#DC2626",
+            font=("Helvetica", 14, "bold"), text_color="#FFFFFF"
+        )
+        btn_eliminar.pack(pady=(15, 20))
+
+    def eliminar_nota_ui(self) -> None:
+        """Elimina la evaluación seleccionada."""
+        nombre_materia = self.materia_edit_combobox.get()
+        nombre_eval = self.eval_del_combobox.get()
+
+        if nombre_eval == "No hay evaluaciones" or not nombre_eval:
+            messagebox.showwarning(
+                "Error", "Selecciona una evaluación válida para eliminar."
+            )
+            return
+
+        confirm = messagebox.askyesno(
+            "Confirmar",
+            f"¿Estás seguro de eliminar '{nombre_eval}' de '{nombre_materia}'?"
+        )
+        if not confirm:
+            return
+
+        materia = next(
+            (m for m in self.semestre if m.nombre == nombre_materia), None
+        )
+        if not materia:
+            return
+
+        exito = materia.eliminar_evaluacion(nombre_eval)
+        if exito:
+            guardar_datos(self.semestre)
+            messagebox.showinfo("Éxito", "Evaluación eliminada correctamente.")
+
+            # Refresh comboboxes natively
+            eval_nombres = [e["nombre"] for e in materia.evaluaciones]
+            if eval_nombres:
+                self.eval_del_combobox.configure(values=eval_nombres)
+                self.eval_del_combobox.set(eval_nombres[0])
+            else:
+                self.eval_del_combobox.configure(
+                    values=["No hay evaluaciones"]
+                )
+                self.eval_del_combobox.set("No hay evaluaciones")
+        else:
+            messagebox.showwarning("Error", "No se encontró la evaluación.")
 
     def actualizar_nota_ui(self) -> None:
         """Helper for Actualizar Nota logic."""
