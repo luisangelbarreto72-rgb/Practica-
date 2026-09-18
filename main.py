@@ -33,7 +33,7 @@ def main(page: ft.Page):
                     width=10)],
     )
 
-    def refresh_ui():
+    def refresh_ui(search_term=None, only_approved=False):
         # Clear content and rebuild
         content_column.controls.clear()
 
@@ -115,7 +115,21 @@ def main(page: ft.Page):
                     "No tienes materias. Agrega una con el botón +",
                     color="#64748B"))
         else:
-            for materia in semestre:
+            filtered_semestre = semestre
+            if search_term:
+                from core import buscar_materias
+                filtered_semestre = buscar_materias(semestre, search_term)
+            if only_approved:
+                filtered_semestre = [
+                    m for m in filtered_semestre
+                    if m.acumulado_notas >= m.nota_minima
+                ]
+
+            if not filtered_semestre:
+                content_column.controls.append(
+                    ft.Text("No hay resultados.", color="#64748B"))
+
+            for materia in filtered_semestre:
                 ganados = round(materia.acumulado_notas, 2)
                 faltantes = 100 - ganados
                 faltantes = 0 if faltantes < 0 else round(faltantes, 2)
@@ -280,6 +294,152 @@ def main(page: ft.Page):
                 ]
             )
 
+        def editar_nota_click(e):
+            if not semestre:
+                page.snack_bar = ft.SnackBar(ft.Text("No tienes materias"))
+                page.snack_bar.open = True
+                page.update()
+                return
+
+            materia_dropdown = ft.Dropdown(
+                label="Selecciona una materia",
+                options=[ft.dropdown.Option(m.nombre) for m in semestre],
+                autofocus=True
+            )
+            eval_dropdown = ft.Dropdown(
+                label="Selecciona evaluación",
+                options=[ft.dropdown.Option("Selecciona una materia primero")]
+            )
+            eval_ganados = ft.TextField(
+                label="Nuevos puntos ganados",
+                keyboard_type=ft.KeyboardType.NUMBER)
+
+            def on_materia_change(e):
+                materia_name = materia_dropdown.value
+                materia = next(
+                    (m for m in semestre if m.nombre == materia_name), None)
+                if materia and hasattr(
+                        materia, "evaluaciones") and materia.evaluaciones:
+                    eval_dropdown.options = [ft.dropdown.Option(
+                        ev["nombre"]) for ev in materia.evaluaciones]
+                    eval_dropdown.value = materia.evaluaciones[0]["nombre"]
+                else:
+                    eval_dropdown.options = [
+                        ft.dropdown.Option("No hay evaluaciones")]
+                    eval_dropdown.value = "No hay evaluaciones"
+                page.update()
+
+            materia_dropdown.on_change = on_materia_change
+
+            def save_eval(e):
+                materia_name = materia_dropdown.value
+                eval_name = eval_dropdown.value
+                invalid_evals = [
+                    "No hay evaluaciones", "Selecciona una materia primero"
+                ]
+                if (not materia_name or not eval_name or
+                        eval_name in invalid_evals):
+                    return
+
+                materia = next(
+                    (m for m in semestre if m.nombre == materia_name), None)
+                if not materia:
+                    return
+
+                try:
+                    ptos_gan = float(eval_ganados.value)
+                    if ptos_gan >= 0:
+                        exito = materia.editar_evaluacion(eval_name, ptos_gan)
+                        if exito:
+                            from core import guardar_datos
+                            guardar_datos(semestre)
+                            close_dialog(e)
+                            refresh_ui()
+                            page.snack_bar = ft.SnackBar(
+                                ft.Text("Evaluación editada!"),
+                                bgcolor=ft.colors.GREEN_600
+                            )
+                            page.snack_bar.open = True
+                            page.update()
+                except ValueError:
+                    pass
+
+            col = ft.Column([materia_dropdown, eval_dropdown,
+                            eval_ganados], tight=True)
+
+            show_dialog(
+                "Editar Nota",
+                col,
+                [
+                    ft.TextButton("Cancelar", on_click=close_dialog),
+                    ft.TextButton("Guardar", on_click=save_eval)
+                ]
+            )
+
+        def eliminar_materia_click(e):
+            if not semestre:
+                page.snack_bar = ft.SnackBar(ft.Text("No tienes materias"))
+                page.snack_bar.open = True
+                page.update()
+                return
+
+            materia_dropdown = ft.Dropdown(
+                label="Selecciona una materia a eliminar",
+                options=[ft.dropdown.Option(m.nombre) for m in semestre],
+                autofocus=True
+            )
+
+            def delete_materia(e):
+                materia_name = materia_dropdown.value
+                if not materia_name:
+                    return
+
+                from core import eliminar_materia, guardar_datos
+                exito = eliminar_materia(semestre, materia_name)
+                if exito:
+                    guardar_datos(semestre)
+                    close_dialog(e)
+                    refresh_ui()
+                    page.snack_bar = ft.SnackBar(
+                        ft.Text("Materia eliminada!"),
+                        bgcolor=ft.colors.RED_600)
+                    page.snack_bar.open = True
+                    page.update()
+
+            col = ft.Column([materia_dropdown, ft.Text(
+                "¿Estás seguro de eliminar esta materia?")], tight=True)
+
+            show_dialog(
+                "Eliminar Materia",
+                col,
+                [
+                    ft.TextButton("Cancelar", on_click=close_dialog),
+                    ft.TextButton(
+                        "Eliminar",
+                        on_click=delete_materia,
+                        style=ft.ButtonStyle(color=ft.colors.RED_600))
+                ]
+            )
+
+        def ver_resumen_click(e):
+            if not semestre:
+                resumen_text = "No tienes materias registradas."
+            else:
+                resumen_text = "\n".join(
+                    [m.obtener_estado() for m in semestre])
+
+            col = ft.Column(
+                [ft.Text(resumen_text, size=12)],
+                scroll=ft.ScrollMode.AUTO,
+                height=300
+            )
+
+            show_dialog(
+                "Resumen de Materias",
+                col,
+                [ft.TextButton("Cerrar", on_click=close_dialog)]
+            )
+
         row1 = ft.Row(
             [
                 create_action_btn(
@@ -292,19 +452,64 @@ def main(page: ft.Page):
                     ft.icons.EDIT,
                     "Editar",
                     "Nota",
-                    "#22A39F"),
+                    "#22A39F",
+                    on_click=editar_nota_click),
                 create_action_btn(
                     ft.icons.ARTICLE,
                     "Ver",
                     "Resumen",
-                    "#C8E6C9"),
+                    "#C8E6C9",
+                    on_click=ver_resumen_click),
                 create_action_btn(
                     ft.icons.DELETE,
                     "Eliminar",
                     "Materia",
-                    "#81C784"),
+                    "#81C784",
+                    on_click=eliminar_materia_click),
             ],
             alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
+
+        def exportar_boletin_click(e):
+            if not semestre:
+                page.snack_bar = ft.SnackBar(
+                    ft.Text("No tienes materias para exportar"))
+                page.snack_bar.open = True
+                page.update()
+                return
+
+            from core import exportar_boletin
+            exportar_boletin(semestre)
+            page.snack_bar = ft.SnackBar(
+                ft.Text("Boletín exportado correctamente!"),
+                bgcolor=ft.colors.GREEN_600
+            )
+            page.snack_bar.open = True
+            page.update()
+
+        def buscar_materia_click(e):
+            search_input = ft.TextField(
+                label="Nombre de materia",
+                autofocus=True
+            )
+
+            def do_search(e):
+                term = search_input.value.strip()
+                close_dialog(e)
+                refresh_ui(search_term=term)
+
+            show_dialog(
+                "Buscar Materia", search_input, [
+                    ft.TextButton(
+                        "Limpiar", on_click=lambda e: (
+                            close_dialog(e) or refresh_ui())), ft.TextButton(
+                        "Buscar", on_click=do_search)])
+
+        def materias_aprobadas_click(e):
+            refresh_ui(only_approved=True)
+            page.snack_bar = ft.SnackBar(
+                ft.Text("Mostrando solo materias aprobadas"))
+            page.snack_bar.open = True
+            page.update()
 
         row2 = ft.Row(
             [
@@ -312,22 +517,26 @@ def main(page: ft.Page):
                     ft.icons.CHECK_CIRCLE,
                     "Materias",
                     "Aprobadas",
-                    "#4DD0E1"),
+                    "#4DD0E1",
+                    on_click=materias_aprobadas_click),
                 create_action_btn(
                     ft.icons.UPLOAD,
                     "Exportar",
                     "Boletín",
-                    "#B2EBF2"),
+                    "#B2EBF2",
+                    on_click=exportar_boletin_click),
                 create_action_btn(
                     ft.icons.SAVE_ALT,
                     "Exportar",
                     "Maletín",
-                    "#AED581"),
+                    "#AED581",
+                    on_click=exportar_boletin_click),
                 create_action_btn(
                     ft.icons.SEARCH,
                     "Buscar",
                     "Materia",
-                    "#388E3C"),
+                    "#388E3C",
+                    on_click=buscar_materia_click),
             ],
             alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
 
