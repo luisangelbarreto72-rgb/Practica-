@@ -104,8 +104,7 @@ def main(page: ft.Page):
 
         content = ft.Column([
             ft.Icon(ft.icons.ACCOUNT_CIRCLE, size=80, color="#042940"),
-            ft.Text("Estudiante", size=22, weight=ft.FontWeight.BOLD,
-                    text_align=ft.TextAlign.CENTER),
+            ft.Text("Estudiante", size=22, weight=ft.FontWeight.BOLD, text_align=ft.TextAlign.CENTER),
             ft.Text(f"Total de Materias: {total_materias}", size=16),
             ft.Text(f"Promedio Actual: {promedio}%", size=16)
         ], alignment=ft.MainAxisAlignment.CENTER, horizontal_alignment=ft.CrossAxisAlignment.CENTER, tight=True)
