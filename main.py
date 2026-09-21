@@ -18,51 +18,82 @@ def main(page: ft.Page):
         snack = ft.SnackBar(ft.Text(text), bgcolor=color)
         page.open(snack)
 
-    def show_dialog(title, content, actions):
+    def mostrar_perfil(e):
+        from core import calcular_promedio_general
+        total_materias = len(semestre)
+        promedio = calcular_promedio_general(semestre)
+
+        content = ft.Column([
+            ft.Icon(ft.icons.ACCOUNT_CIRCLE, size=80, color="#042940"),
+            ft.Text("Estudiante", size=22, weight=ft.FontWeight.BOLD,
+                    text_align=ft.TextAlign.CENTER),
+            ft.Text(f"Total de Materias: {total_materias}", size=16),
+            ft.Text(f"Promedio Actual: {promedio}%", size=16)
+        ], alignment=ft.MainAxisAlignment.CENTER,
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER, tight=True)
+
         dlg = ft.AlertDialog(
-            title=ft.Text(title),
             content=content,
-            actions=actions,
-            actions_alignment=ft.MainAxisAlignment.END,
+            actions=[
+                ft.TextButton("Configuración", on_click=lambda e: page.open(
+                    ft.SnackBar(ft.Text("Configuración en desarrollo...")))),
+                ft.TextButton("Cerrar sesión", on_click=lambda e: page.open(
+                    ft.SnackBar(ft.Text("Cerrar sesión en desarrollo...")))),
+                ft.TextButton("Cerrar", on_click=lambda e: page.close(dlg))
+            ],
+            actions_alignment=ft.MainAxisAlignment.CENTER
         )
-        page.current_dialog = dlg
         page.open(dlg)
 
-    def close_dialog(e=None):
-        if hasattr(page, 'current_dialog') and page.current_dialog:
-            page.close(page.current_dialog)
-            page.current_dialog = None
+    def handle_search_click(e):
+        search_input = ft.TextField(
+            label="Nombre de materia",
+            autofocus=True
+        )
 
-    def buscar_materia_global(e):
-        search_input = ft.TextField(label="Nombre de materia", autofocus=True)
-        def do_search(e):
-            close_dialog(e)
-            refresh_ui(search_term=search_input.value.strip())
-        show_dialog("Buscar Materia", search_input, [
-            ft.TextButton("Limpiar", on_click=lambda e: (close_dialog(e), refresh_ui())),
-            ft.TextButton("Buscar", on_click=do_search)
-        ])
+        def do_search(e_inner):
+            term = search_input.value.strip()
+            if hasattr(page, '_current_dialog') and page._current_dialog:
+                page.close(page._current_dialog)
+            elif hasattr(page, 'dialog') and page.dialog:
+                page.close(page.dialog)
+            refresh_ui(search_term=term)
 
-    def ver_resumen_global(e):
-        resumen_text = "\n".join([m.obtener_estado() for m in semestre]) if semestre else "No tienes materias registradas."
-        show_dialog("Resumen de Materias", ft.Column([ft.Text(resumen_text, size=12)], scroll=ft.ScrollMode.AUTO, height=300), [
-            ft.TextButton("Cerrar", on_click=close_dialog)
-        ])
+        dlg = ft.AlertDialog(
+            title=ft.Text("Buscar Materia"),
+            content=search_input,
+            actions=[
+                ft.TextButton("Limpiar", on_click=lambda e_btn: (
+                    page.close(dlg) or refresh_ui())),
+                ft.TextButton("Buscar", on_click=do_search)
+            ],
+            actions_alignment=ft.MainAxisAlignment.END,
+        )
+        page._current_dialog = dlg
+        page.open(dlg)
 
-    # --- BARRA SUPERIOR (YA INTERACTIVA) ---
+    # App Bar
     page.appbar = ft.AppBar(
-        leading=ft.IconButton(ft.icons.SEARCH, icon_color=ft.colors.WHITE, on_click=buscar_materia_global),
+        leading=ft.IconButton(
+            ft.icons.SEARCH,
+            icon_color=ft.colors.WHITE,
+            on_click=handle_search_click),
         leading_width=40,
         title=ft.Text("Gestor Académico", color=ft.colors.WHITE, weight=ft.FontWeight.BOLD),
         center_title=True,
         bgcolor="#042940",
         actions=[
-            ft.IconButton(ft.icons.ACCOUNT_CIRCLE, icon_color=ft.colors.WHITE, on_click=lambda e: show_snack("Perfil de Usuario en desarrollo...", ft.colors.BLUE)),
+            ft.IconButton(
+                ft.icons.ACCOUNT_CIRCLE,
+                icon_color=ft.colors.WHITE,
+                on_click=mostrar_perfil),
             ft.Container(width=10)
         ],
     )
 
-    def refresh_ui(search_term=None, only_approved=False):
+    def refresh_ui(search_term=None, only_approved=False,
+                   vista_actual='inicio'):
+        # Clear content and rebuild
         content_column.controls.clear()
         promedio = calcular_promedio_general(semestre)
 
@@ -203,21 +234,90 @@ def main(page: ft.Page):
             exportar_boletin(semestre)
             show_snack("Boletín exportado correctamente!", ft.colors.GREEN_600)
 
-        content_column.controls.append(ft.Container(height=10))
-        content_column.controls.append(ft.Row([
-            create_action_btn(ft.icons.SETTINGS, "Gestionar", "Materia", "#1A5F7A", on_click=gestionar_materia_click),
-            create_action_btn(ft.icons.EDIT, "Editar", "Nota", "#22A39F", on_click=editar_nota_click),
-            create_action_btn(ft.icons.ARTICLE, "Ver", "Resumen", "#C8E6C9", on_click=ver_resumen_global),
-            create_action_btn(ft.icons.DELETE, "Eliminar", "Materia", "#81C784", on_click=eliminar_materia_click),
-        ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN))
-        content_column.controls.append(ft.Row([
-            create_action_btn(ft.icons.CHECK_CIRCLE, "Materias", "Aprobadas", "#4DD0E1", on_click=lambda e: (refresh_ui(only_approved=True), show_snack("Mostrando aprobadas", ft.colors.BLUE))),
-            create_action_btn(ft.icons.UPLOAD, "Exportar", "Boletín", "#B2EBF2", on_click=exportar_boletin_click),
-            create_action_btn(ft.icons.SAVE_ALT, "Exportar", "Maletín", "#AED581", on_click=exportar_boletin_click),
-            create_action_btn(ft.icons.SEARCH, "Buscar", "Materia", "#388E3C", on_click=buscar_materia_global),
-        ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN))
-        content_column.controls.append(ft.Container(height=30))
+        if vista_actual == "inicio":
+            content_column.controls.append(ft.Container(height=10))
+            content_column.controls.append(row1)
+            content_column.controls.append(row2)
+
+        content_column.controls.append(
+            ft.Container(height=80))  # padding for bottom bar
+
         page.update()
+
+    content_column = ft.Column(scroll=ft.ScrollMode.HIDDEN)
+
+    def handle_ver_resumen(e):
+        if not semestre:
+            resumen_text = "No tienes materias registradas."
+        else:
+            resumen_text = "\n".join(
+                [m.obtener_estado() for m in semestre])
+
+        col = ft.Column(
+            [ft.Text(resumen_text, size=12)],
+            scroll=ft.ScrollMode.AUTO,
+            height=300
+        )
+
+        dlg = ft.AlertDialog(
+            title=ft.Text("Resumen de Materias"),
+            content=col,
+            actions=[
+                ft.TextButton("Cerrar", on_click=lambda e: page.close(dlg))
+            ],
+            actions_alignment=ft.MainAxisAlignment.END,
+        )
+        page.open(dlg)
+
+    bottom_bar = ft.Container(
+        content=ft.Row(
+            [
+                ft.Container(
+                    content=ft.Column(
+                        [ft.Icon(ft.icons.HOME, color="#A8E6CF"),
+                         ft.Text("Inicio", color="#A8E6CF", size=10)],
+                        alignment=ft.MainAxisAlignment.CENTER,
+                        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                        spacing=0),
+                    ink=True, on_click=lambda e: refresh_ui(
+                        vista_actual='inicio')
+                ),
+                ft.Container(
+                    content=ft.Column(
+                        [ft.Icon(ft.icons.MENU_BOOK, color="#64748B"),
+                         ft.Text("Materias", color="#64748B", size=10)],
+                        alignment=ft.MainAxisAlignment.CENTER,
+                        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                        spacing=0),
+                    ink=True, on_click=lambda e: refresh_ui(
+                        vista_actual='materias')
+                ),
+                ft.Container(width=50),  # Empty space for FAB
+                ft.Container(
+                    content=ft.Column(
+                        [ft.Icon(ft.icons.DESCRIPTION, color="#64748B"),
+                         ft.Text("Resumen", color="#64748B", size=10)],
+                        alignment=ft.MainAxisAlignment.CENTER,
+                        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                        spacing=0),
+                    ink=True, on_click=handle_ver_resumen
+                ),
+                ft.Container(
+                    content=ft.Column(
+                        [ft.Icon(ft.icons.ACCOUNT_CIRCLE, color="#64748B"),
+                         ft.Text("Cuenta", color="#64748B", size=10)],
+                        alignment=ft.MainAxisAlignment.CENTER,
+                        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                        spacing=0),
+                    ink=True, on_click=mostrar_perfil
+                ),
+            ],
+            alignment=ft.MainAxisAlignment.SPACE_AROUND
+        ),
+        bgcolor="#042940",
+        height=60,
+        padding=ft.padding.only(top=5, bottom=5)
+    )
 
     def add_materia_fab(e):
         nombre_input = ft.TextField(label="Nombre de materia", autofocus=True)
