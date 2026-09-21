@@ -13,11 +13,42 @@ def main(page: ft.Page):
 
     semestre = cargar_datos()
 
+    def handle_profile_click(e):
+        page.open(ft.SnackBar(ft.Text("Perfil de Usuario en desarrollo...")))
+
+    def handle_search_click(e):
+        search_input = ft.TextField(
+            label="Nombre de materia",
+            autofocus=True
+        )
+
+        def do_search(e_inner):
+            term = search_input.value.strip()
+            if hasattr(page, '_current_dialog') and page._current_dialog:
+                page.close(page._current_dialog)
+            elif hasattr(page, 'dialog') and page.dialog:
+                page.close(page.dialog)
+            refresh_ui(search_term=term)
+
+        dlg = ft.AlertDialog(
+            title=ft.Text("Buscar Materia"),
+            content=search_input,
+            actions=[
+                ft.TextButton("Limpiar", on_click=lambda e_btn: (
+                    page.close(dlg) or refresh_ui())),
+                ft.TextButton("Buscar", on_click=do_search)
+            ],
+            actions_alignment=ft.MainAxisAlignment.END,
+        )
+        page._current_dialog = dlg
+        page.open(dlg)
+
     # App Bar
     page.appbar = ft.AppBar(
-        leading=ft.Icon(
+        leading=ft.IconButton(
             ft.icons.SEARCH,
-            color=ft.colors.WHITE),
+            icon_color=ft.colors.WHITE,
+            on_click=handle_search_click),
         leading_width=40,
         title=ft.Text(
             "Gestor Académico",
@@ -26,11 +57,12 @@ def main(page: ft.Page):
         center_title=True,
         bgcolor="#042940",
         actions=[
-                ft.IconButton(
-                    ft.icons.ACCOUNT_CIRCLE,
-                    icon_color=ft.colors.WHITE),
-            ft.Container(
-                    width=10)],
+            ft.IconButton(
+                ft.icons.ACCOUNT_CIRCLE,
+                icon_color=ft.colors.WHITE,
+                on_click=handle_profile_click),
+            ft.Container(width=10)
+        ],
     )
 
     def refresh_ui(search_term=None, only_approved=False):
@@ -532,42 +564,69 @@ def main(page: ft.Page):
 
     content_column = ft.Column(scroll=ft.ScrollMode.HIDDEN)
 
+    def handle_ver_resumen(e):
+        if not semestre:
+            resumen_text = "No tienes materias registradas."
+        else:
+            resumen_text = "\n".join(
+                [m.obtener_estado() for m in semestre])
+
+        col = ft.Column(
+            [ft.Text(resumen_text, size=12)],
+            scroll=ft.ScrollMode.AUTO,
+            height=300
+        )
+
+        dlg = ft.AlertDialog(
+            title=ft.Text("Resumen de Materias"),
+            content=col,
+            actions=[
+                ft.TextButton("Cerrar", on_click=lambda e: page.close(dlg))
+            ],
+            actions_alignment=ft.MainAxisAlignment.END,
+        )
+        page.open(dlg)
+
     bottom_bar = ft.Container(
         content=ft.Row(
             [
-                ft.Column([ft.Icon(ft.icons.HOME,
-                                   color="#A8E6CF"),
-                           ft.Text("Inicio",
-                                   color="#A8E6CF",
-                                   size=10)],
-                          alignment=ft.MainAxisAlignment.CENTER,
-                          horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                          spacing=0),
-                ft.Column([ft.Icon(ft.icons.MENU_BOOK,
-                                   color="#64748B"),
-                           ft.Text("Materias",
-                                   color="#64748B",
-                                   size=10)],
-                          alignment=ft.MainAxisAlignment.CENTER,
-                          horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                          spacing=0),
+                ft.Container(
+                    content=ft.Column(
+                        [ft.Icon(ft.icons.HOME, color="#A8E6CF"),
+                         ft.Text("Inicio", color="#A8E6CF", size=10)],
+                        alignment=ft.MainAxisAlignment.CENTER,
+                        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                        spacing=0),
+                    ink=True, on_click=lambda e: refresh_ui()
+                ),
+                ft.Container(
+                    content=ft.Column(
+                        [ft.Icon(ft.icons.MENU_BOOK, color="#64748B"),
+                         ft.Text("Materias", color="#64748B", size=10)],
+                        alignment=ft.MainAxisAlignment.CENTER,
+                        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                        spacing=0),
+                    ink=True, on_click=lambda e: refresh_ui()
+                ),
                 ft.Container(width=50),  # Empty space for FAB
-                ft.Column([ft.Icon(ft.icons.DESCRIPTION,
-                                   color="#64748B"),
-                           ft.Text("Resumen",
-                                   color="#64748B",
-                                   size=10)],
-                          alignment=ft.MainAxisAlignment.CENTER,
-                          horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                          spacing=0),
-                ft.Column([ft.Icon(ft.icons.ACCOUNT_CIRCLE,
-                                   color="#64748B"),
-                           ft.Text("Cuenta",
-                                   color="#64748B",
-                                   size=10)],
-                          alignment=ft.MainAxisAlignment.CENTER,
-                          horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                          spacing=0),
+                ft.Container(
+                    content=ft.Column(
+                        [ft.Icon(ft.icons.DESCRIPTION, color="#64748B"),
+                         ft.Text("Resumen", color="#64748B", size=10)],
+                        alignment=ft.MainAxisAlignment.CENTER,
+                        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                        spacing=0),
+                    ink=True, on_click=handle_ver_resumen
+                ),
+                ft.Container(
+                    content=ft.Column(
+                        [ft.Icon(ft.icons.ACCOUNT_CIRCLE, color="#64748B"),
+                         ft.Text("Cuenta", color="#64748B", size=10)],
+                        alignment=ft.MainAxisAlignment.CENTER,
+                        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                        spacing=0),
+                    ink=True, on_click=handle_profile_click
+                ),
             ],
             alignment=ft.MainAxisAlignment.SPACE_AROUND
         ),
