@@ -56,7 +56,9 @@ def main(page: ft.Page):
 
         def toggle_theme(e_switch):
             page.theme_mode = ft.ThemeMode.DARK if e_switch.control.value else ft.ThemeMode.LIGHT
+            page.bgcolor = "#121212" if page.theme_mode == ft.ThemeMode.DARK else "#F8F9FA"
             page.update()
+            refresh_ui()
 
         theme_switch = ft.Switch(label="Modo Oscuro", value=(page.theme_mode == ft.ThemeMode.DARK), on_change=toggle_theme)
         nota_minima_input = ft.TextField(label="Nota Mínima Aprobatoria", value="60")
@@ -114,6 +116,11 @@ def main(page: ft.Page):
         content_column.controls.clear()
         promedio = calcular_promedio_general(semestre)
 
+        card_bg = "#1E1E1E" if page.theme_mode == ft.ThemeMode.DARK else ft.colors.WHITE
+        text_main = ft.colors.WHITE if page.theme_mode == ft.ThemeMode.DARK else "#042940"
+        text_sub = ft.colors.GREY_400 if page.theme_mode == ft.ThemeMode.DARK else "#64748B"
+        border_col = "#333333" if page.theme_mode == ft.ThemeMode.DARK else "#E2E8F0"
+
         def create_action_btn(icon, text_line1, text_line2, bgcolor, on_click=None):
             return ft.Container(
                 content=ft.Column([
@@ -129,28 +136,28 @@ def main(page: ft.Page):
                     [
                         ft.Container(
                             content=ft.Stack([
-                                ft.ProgressRing(width=120, height=120, stroke_width=15, color="#042940", bgcolor="#E2E8F0", value=promedio / 100 if promedio > 0 else 0),
-                                ft.Container(content=ft.Text(f"{promedio}%", size=24, weight=ft.FontWeight.BOLD, color="#042940"), alignment=ft.alignment.center, width=120, height=120)
+                                ft.ProgressRing(width=120, height=120, stroke_width=15, color=text_main, bgcolor=border_col, value=promedio / 100 if promedio > 0 else 0),
+                                ft.Container(content=ft.Text(f"{promedio}%", size=24, weight=ft.FontWeight.BOLD, color=text_main), alignment=ft.alignment.center, width=120, height=120)
                             ]),
                             alignment=ft.alignment.center, padding=ft.padding.only(bottom=10)
                         ),
-                        ft.Text("Promedio General", size=16, color="#64748B", text_align=ft.TextAlign.CENTER),
-                        ft.Text(f"{promedio}", size=24, weight=ft.FontWeight.BOLD, color="#042940", text_align=ft.TextAlign.CENTER)
+                        ft.Text("Promedio General", size=16, color=text_sub, text_align=ft.TextAlign.CENTER),
+                        ft.Text(f"{promedio}", size=24, weight=ft.FontWeight.BOLD, color=text_main, text_align=ft.TextAlign.CENTER)
                     ],
                     horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                 ),
-                bgcolor=ft.colors.WHITE, border_radius=15, border=ft.border.all(1, "#E2E8F0"), padding=20, width=float('inf'),
+                bgcolor=card_bg, border_radius=15, border=ft.border.all(1, border_col), padding=20, width=float('inf'),
                 shadow=ft.BoxShadow(spread_radius=1, blur_radius=5, color=ft.colors.BLACK12, offset=ft.Offset(0, 2))
             )
             content_column.controls.append(avg_card)
-            content_column.controls.append(ft.Container(content=ft.Text("Tus Materias", size=18, weight=ft.FontWeight.BOLD, color="#042940"), padding=ft.padding.only(top=15, bottom=5, left=5)))
+            content_column.controls.append(ft.Container(content=ft.Text("Tus Materias", size=18, weight=ft.FontWeight.BOLD, color=text_main), padding=ft.padding.only(top=15, bottom=5, left=5)))
 
         elif vista_actual == "materias":
-            content_column.controls.append(ft.Container(content=ft.Text("Administración de Materias", size=20, weight=ft.FontWeight.BOLD, color="#042940"), padding=ft.padding.only(top=10, bottom=10)))
+            content_column.controls.append(ft.Container(content=ft.Text("Administración de Materias", size=20, weight=ft.FontWeight.BOLD, color=text_main), padding=ft.padding.only(top=10, bottom=10)))
 
         # 2. Lista Materias
         if not semestre:
-            content_column.controls.append(ft.Text("No tienes materias. Agrega una con el botón +", color="#64748B"))
+            content_column.controls.append(ft.Text("No tienes materias. Agrega una con el botón +", color=text_sub))
         else:
             filtered = semestre
             if search_term:
@@ -159,20 +166,21 @@ def main(page: ft.Page):
                 filtered = [m for m in filtered if m.acumulado_notas >= m.nota_minima]
 
             if not filtered:
-                content_column.controls.append(ft.Text("No hay resultados.", color="#64748B"))
+                content_column.controls.append(ft.Text("No hay resultados.", color=text_sub))
 
             for materia in filtered:
                 ganados = round(materia.acumulado_notas, 2)
                 faltantes = max(0, 100 - ganados)
                 mat_card = ft.Container(
                     content=ft.Column([
-                        ft.Text(materia.nombre, size=16, color="#042940"),
-                        ft.Text(f"{ganados}", size=18, weight=ft.FontWeight.BOLD, color="#042940"),
-                        ft.ProgressBar(value=ganados / 100 if ganados > 0 else 0, color="#042940", bgcolor="#E2E8F0", height=10),
-                        ft.Text(f"Puntaje: {ganados}/100, Faltan: {faltantes}", size=12, color="#64748B")
+                        ft.Text(materia.nombre, size=16, color=text_main),
+                        ft.Text(f"{ganados}", size=18, weight=ft.FontWeight.BOLD, color=text_main),
+                        ft.ProgressBar(value=ganados / 100 if ganados > 0 else 0, color=text_main, bgcolor=border_col, height=10),
+                        ft.Text(f"Puntaje: {ganados}/100, Faltan: {faltantes}", size=12, color=text_sub)
                     ]),
-                    bgcolor=ft.colors.WHITE, border_radius=10, padding=15, margin=ft.margin.only(bottom=10),
-                    shadow=ft.BoxShadow(spread_radius=0, blur_radius=2, color=ft.colors.BLACK12, offset=ft.Offset(0, 1))
+                    bgcolor=card_bg, border_radius=10, padding=15, margin=ft.margin.only(bottom=10),
+                    shadow=ft.BoxShadow(spread_radius=0, blur_radius=2, color=ft.colors.BLACK12, offset=ft.Offset(0, 1)),
+                    border=ft.border.all(1, border_col)
                 )
                 content_column.controls.append(mat_card)
 
