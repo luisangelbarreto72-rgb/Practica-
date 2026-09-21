@@ -6,8 +6,8 @@ from core import (
 
 def main(page: ft.Page):
     page.title = "Gestor Académico"
-    page.window_width = 400
-    page.window_height = 700
+    page.window.width = 400
+    page.window.height = 700
     page.bgcolor = "#F8F9FA"
     page.scroll = "auto"
 
@@ -207,12 +207,14 @@ def main(page: ft.Page):
                 actions=actions,
                 actions_alignment=ft.MainAxisAlignment.END,
             )
-            page.dialog = dlg
-            dlg.open = True
-            page.update()
+            page._current_dialog = dlg
+            page.open(dlg)
 
         def close_dialog(e):
-            page.dialog.open = False
+            if hasattr(page, '_current_dialog') and page._current_dialog:
+                page.close(page._current_dialog)
+            elif hasattr(page, 'dialog') and page.dialog:
+                page.close(page.dialog)
             page.update()
 
         def add_materia_click(e):
@@ -238,9 +240,7 @@ def main(page: ft.Page):
 
         def gestionar_materia_click(e):
             if not semestre:
-                page.snack_bar = ft.SnackBar(ft.Text("No tienes materias"))
-                page.snack_bar.open = True
-                page.update()
+                page.open(ft.SnackBar(ft.Text("No tienes materias")))
                 return
 
             materia_dropdown = ft.Dropdown(
@@ -275,10 +275,8 @@ def main(page: ft.Page):
                         guardar_datos(semestre)
                         close_dialog(e)
                         refresh_ui()
-                        page.snack_bar = ft.SnackBar(
-                            ft.Text("Evaluación registrada!"))
-                        page.snack_bar.open = True
-                        page.update()
+                        page.open(ft.SnackBar(
+                            ft.Text("Evaluación registrada!")))
                 except ValueError:
                     pass
 
@@ -296,9 +294,7 @@ def main(page: ft.Page):
 
         def editar_nota_click(e):
             if not semestre:
-                page.snack_bar = ft.SnackBar(ft.Text("No tienes materias"))
-                page.snack_bar.open = True
-                page.update()
+                page.open(ft.SnackBar(ft.Text("No tienes materias")))
                 return
 
             materia_dropdown = ft.Dropdown(
@@ -355,12 +351,9 @@ def main(page: ft.Page):
                             guardar_datos(semestre)
                             close_dialog(e)
                             refresh_ui()
-                            page.snack_bar = ft.SnackBar(
+                            page.open(ft.SnackBar(
                                 ft.Text("Evaluación editada!"),
-                                bgcolor=ft.colors.GREEN_600
-                            )
-                            page.snack_bar.open = True
-                            page.update()
+                                bgcolor=ft.colors.GREEN_600))
                 except ValueError:
                     pass
 
@@ -378,9 +371,7 @@ def main(page: ft.Page):
 
         def eliminar_materia_click(e):
             if not semestre:
-                page.snack_bar = ft.SnackBar(ft.Text("No tienes materias"))
-                page.snack_bar.open = True
-                page.update()
+                page.open(ft.SnackBar(ft.Text("No tienes materias")))
                 return
 
             materia_dropdown = ft.Dropdown(
@@ -400,11 +391,9 @@ def main(page: ft.Page):
                     guardar_datos(semestre)
                     close_dialog(e)
                     refresh_ui()
-                    page.snack_bar = ft.SnackBar(
+                    page.open(ft.SnackBar(
                         ft.Text("Materia eliminada!"),
-                        bgcolor=ft.colors.RED_600)
-                    page.snack_bar.open = True
-                    page.update()
+                        bgcolor=ft.colors.RED_600))
 
             col = ft.Column([materia_dropdown, ft.Text(
                 "¿Estás seguro de eliminar esta materia?")], tight=True)
@@ -471,20 +460,15 @@ def main(page: ft.Page):
 
         def exportar_boletin_click(e):
             if not semestre:
-                page.snack_bar = ft.SnackBar(
-                    ft.Text("No tienes materias para exportar"))
-                page.snack_bar.open = True
-                page.update()
+                page.open(ft.SnackBar(
+                    ft.Text("No tienes materias para exportar")))
                 return
 
             from core import exportar_boletin
             exportar_boletin(semestre)
-            page.snack_bar = ft.SnackBar(
+            page.open(ft.SnackBar(
                 ft.Text("Boletín exportado correctamente!"),
-                bgcolor=ft.colors.GREEN_600
-            )
-            page.snack_bar.open = True
-            page.update()
+                bgcolor=ft.colors.GREEN_600))
 
         def buscar_materia_click(e):
             search_input = ft.TextField(
@@ -506,10 +490,8 @@ def main(page: ft.Page):
 
         def materias_aprobadas_click(e):
             refresh_ui(only_approved=True)
-            page.snack_bar = ft.SnackBar(
-                ft.Text("Mostrando solo materias aprobadas"))
-            page.snack_bar.open = True
-            page.update()
+            page.open(ft.SnackBar(
+                ft.Text("Mostrando solo materias aprobadas")))
 
         row2 = ft.Row(
             [
@@ -603,7 +585,7 @@ def main(page: ft.Page):
             if nombre:
                 semestre.append(Materia(nombre))
                 guardar_datos(semestre)
-                page.dialog.open = False
+                page.close(dlg)
                 refresh_ui()
 
         dlg = ft.AlertDialog(
@@ -612,18 +594,13 @@ def main(page: ft.Page):
             actions=[
                 ft.TextButton(
                     "Cancelar",
-                    on_click=lambda e: setattr(
-                        page.dialog,
-                        'open',
-                        False) or page.update()),
+                    on_click=lambda e: page.close(dlg)),
                 ft.TextButton(
                     "Guardar",
                     on_click=save_materia)],
             actions_alignment=ft.MainAxisAlignment.END,
         )
-        page.dialog = dlg
-        dlg.open = True
-        page.update()
+        page.open(dlg)
 
     fab = ft.Container(
         content=ft.Icon(
@@ -645,21 +622,16 @@ def main(page: ft.Page):
                 0,
                 2)))
 
-    main_stack = ft.Stack(
-        [
-            ft.Container(
-                content=content_column,
-                padding=20,
-                expand=True,
-                padding_bottom=80),
-            ft.Container(content=bottom_bar, bottom=0, left=0, right=0),
-            # Assuming width is 400, center is ~170
-            ft.Container(content=fab, bottom=20, left=170)
-        ],
-        expand=True
-    )
+    page.floating_action_button = fab
+    page.floating_action_button_location = (
+        ft.FloatingActionButtonLocation.CENTER_DOCKED)
+    page.bottom_appbar = ft.BottomAppBar(content=bottom_bar, bgcolor="#042940")
 
-    page.add(main_stack)
+    page.add(ft.Container(
+        content=content_column,
+        padding=20,
+        expand=True
+    ))
     refresh_ui()
 
 
