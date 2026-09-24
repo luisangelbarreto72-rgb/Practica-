@@ -138,9 +138,9 @@ def main(page: ft.Page):
             return ft.Container(
                 content=ft.Column([
                     ft.Icon(icon, color=ft.colors.WHITE, size=24),
-                    ft.Text(f"{text_line1}\n{text_line2}", color=ft.colors.WHITE, size=11, text_align=ft.TextAlign.CENTER, weight=ft.FontWeight.W_500)
+                    ft.Text(f"{text_line1}\n{text_line2}", color=ft.colors.WHITE, size=12, text_align=ft.TextAlign.CENTER, weight=ft.FontWeight.BOLD)
                 ], alignment=ft.MainAxisAlignment.CENTER, horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=5),
-                bgcolor=bgcolor, border_radius=10, width=80, height=80, on_click=on_click, ink=True
+                bgcolor=bgcolor, border_radius=10, width=90, height=80, on_click=on_click, ink=True
             )
 
         if vista_actual == "inicio":
@@ -269,24 +269,21 @@ def main(page: ft.Page):
                     ft.TextButton("Cancelar", on_click=close_dialog), ft.TextButton("Eliminar", on_click=delete_materia, style=ft.ButtonStyle(color=ft.colors.RED_600))
                 ])
 
-            def exportar_boletin_click(e):
-                if not semestre: return show_snack("No tienes materias para exportar")
-                exportar_boletin(semestre)
-                show_snack("Boletín exportado correctamente!", ft.colors.GREEN_600)
+            def materias_aprobadas_click(e):
+                refresh_ui(only_approved=True)
+                show_snack("Mostrando aprobadas", ft.colors.BLUE)
 
             content_column.controls.append(ft.Container(height=10))
             content_column.controls.append(ft.Row([
                 create_action_btn(ft.icons.SETTINGS, "Gestionar", "Materia", "#1A5F7A", on_click=gestionar_materia_click),
                 create_action_btn(ft.icons.EDIT, "Editar", "Nota", "#22A39F", on_click=editar_nota_click),
-                create_action_btn(ft.icons.ARTICLE, "Ver", "Resumen", "#C8E6C9", on_click=ver_resumen_global),
                 create_action_btn(ft.icons.DELETE, "Eliminar", "Materia", "#81C784", on_click=eliminar_materia_click),
-            ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN))
+            ], alignment=ft.MainAxisAlignment.SPACE_EVENLY))
             content_column.controls.append(ft.Row([
-                create_action_btn(ft.icons.CHECK_CIRCLE, "Materias", "Aprobadas", "#4DD0E1", on_click=lambda e: (refresh_ui(only_approved=True), show_snack("Mostrando aprobadas", ft.colors.BLUE))),
-                create_action_btn(ft.icons.UPLOAD, "Exportar", "Boletín", "#B2EBF2", on_click=exportar_boletin_click),
-                create_action_btn(ft.icons.SAVE_ALT, "Exportar", "Maletín", "#AED581", on_click=exportar_boletin_click),
                 create_action_btn(ft.icons.SEARCH, "Buscar", "Materia", "#388E3C", on_click=buscar_materia_global),
-            ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN))
+                create_action_btn(ft.icons.CHECK_CIRCLE, "Materias", "Aprobadas", "#4DD0E1", on_click=materias_aprobadas_click),
+                create_action_btn(ft.icons.ARTICLE, "Ver", "Resumen", "#C8E6C9", on_click=ver_resumen_global),
+            ], alignment=ft.MainAxisAlignment.SPACE_EVENLY))
 
         content_column.controls.append(ft.Container(height=30))
         page.update()
