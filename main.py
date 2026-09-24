@@ -44,9 +44,22 @@ def main(page: ft.Page):
         ])
 
     def ver_resumen_global(e):
-        resumen_text = "\n".join([m.obtener_estado()] for m in semestre) if semestre else "No tienes materias registradas."
-        if isinstance(resumen_text, list): resumen_text = "\n".join(resumen_text)
-        show_dialog("Resumen de Materias", ft.Column([ft.Text(resumen_text, size=12)], scroll=ft.ScrollMode.AUTO, height=300), [
+        if not semestre:
+            content = ft.Text("No hay materias registradas.")
+        else:
+            list_tiles = []
+            for m in semestre:
+                leading_icon = ft.Icon(ft.icons.CHECK_CIRCLE, color=ft.colors.GREEN) if m.acumulado_notas >= 60 else ft.Icon(ft.icons.CANCEL, color=ft.colors.RED)
+                list_tiles.append(
+                    ft.ListTile(
+                        leading=leading_icon,
+                        title=ft.Text(m.nombre, weight=ft.FontWeight.BOLD),
+                        trailing=ft.Text(f"{m.acumulado_notas}/100")
+                    )
+                )
+            content = ft.Column(list_tiles, scroll=ft.ScrollMode.AUTO, height=400)
+
+        show_dialog("Resumen de Materias", content, [
             ft.TextButton("Cerrar", on_click=close_dialog)
         ])
 
@@ -163,7 +176,7 @@ def main(page: ft.Page):
             if search_term:
                 filtered = buscar_materias(semestre, search_term)
             if only_approved:
-                filtered = [m for m in filtered if m.acumulado_notas >= m.nota_minima]
+                filtered = [m for m in filtered if m.acumulado_notas >= getattr(m, 'nota_minima', 60)]
 
             if not filtered:
                 content_column.controls.append(ft.Text("No hay resultados.", color=text_sub))
