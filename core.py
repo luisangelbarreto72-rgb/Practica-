@@ -8,12 +8,13 @@ ARCHIVO_DATOS = "datos.json"
 class Materia:
     """Clase que representa una materia académica y su progreso."""
 
-    def __init__(self, nombre: str, nota_minima: float = 60.0) -> None:
+    def __init__(self, nombre: str, nota_minima: float = 60.0, **kwargs) -> None:
         self.nombre = nombre
         self.nota_minima = nota_minima
         self.acumulado_notas = 0.0
         self.puntos_totales_evaluados = 0.0
         self.evaluaciones = []
+        self.pendientes = kwargs.get("pendientes", [])
 
     def registrar_evaluacion(
         self,
@@ -88,7 +89,8 @@ class Materia:
             "nota_minima": self.nota_minima,
             "acumulado_notas": self.acumulado_notas,
             "puntos_totales_evaluados": self.puntos_totales_evaluados,
-            "evaluaciones": self.evaluaciones
+            "evaluaciones": self.evaluaciones,
+            "pendientes": self.pendientes
         }
 
     @classmethod
@@ -101,6 +103,7 @@ class Materia:
                 "puntos_totales_evaluados", 0.0
             )
             materia.evaluaciones = data.get("evaluaciones", [])
+            materia.pendientes = data.get("pendientes", [])
             return materia
         except KeyError:
             return None
@@ -167,6 +170,15 @@ def buscar_materias(
 ) -> List[Materia]:
     """Busca y retorna materias que coincidan parcialmente con el texto."""
     return [m for m in lista_materias if texto.lower() in m.nombre.lower()]
+
+
+def agregar_pendiente(semestre: List[Materia], nombre_materia: str, nombre_tarea: str, fecha: str) -> bool:
+    """Añade un recordatorio de evaluación pendiente a una materia específica."""
+    for materia in semestre:
+        if materia.nombre.lower() == nombre_materia.lower():
+            materia.pendientes.append({"tarea": nombre_tarea, "fecha": fecha})
+            return True
+    return False
 
 
 def exportar_boletin(

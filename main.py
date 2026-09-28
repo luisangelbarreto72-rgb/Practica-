@@ -1,7 +1,7 @@
 import flet as ft
 from core import (
     Materia, cargar_datos, guardar_datos, calcular_promedio_general,
-    buscar_materias, eliminar_materia, exportar_boletin
+    buscar_materias, eliminar_materia, exportar_boletin, agregar_pendiente
 )
 
 def main(page: ft.Page):
@@ -91,6 +91,40 @@ def main(page: ft.Page):
             ft.TextButton("Volver al perfil", on_click=volver_perfil)
         ])
 
+    def mostrar_agenda(e):
+        def nueva_tarea(e_btn):
+            close_dialog()
+            materia_dropdown = ft.Dropdown(label="Selecciona la materia", options=[ft.dropdown.Option(m.nombre) for m in semestre], autofocus=True)
+            nombre_tarea_input = ft.TextField(label="Nombre de la evaluación")
+            fecha_input = ft.TextField(label="Fecha (ej. DD/MM/AAAA)")
+
+            def save_tarea(e_save):
+                if materia_dropdown.value and nombre_tarea_input.value and fecha_input.value:
+                    if agregar_pendiente(semestre, materia_dropdown.value, nombre_tarea_input.value, fecha_input.value):
+                        guardar_datos(semestre)
+                        close_dialog(e_save)
+                        show_snack("Evaluación agregada exitosamente!", ft.colors.GREEN_600)
+
+            show_dialog("Nueva Evaluación", ft.Column([materia_dropdown, nombre_tarea_input, fecha_input], tight=True), [
+                ft.TextButton("Cancelar", on_click=close_dialog),
+                ft.TextButton("Guardar", on_click=save_tarea)
+            ])
+
+        list_tiles = []
+        for m in semestre:
+            for p in getattr(m, 'pendientes', []):
+                list_tiles.append(ft.ListTile(title=ft.Text(p.get("tarea", "")), subtitle=ft.Text(f"{m.nombre} - {p.get('fecha', '')}"), leading=ft.Icon(ft.icons.EVENT)))
+
+        if not list_tiles:
+            content = ft.Text("No tienes evaluaciones próximas")
+        else:
+            content = ft.Column(list_tiles, scroll=ft.ScrollMode.AUTO, height=300)
+
+        show_dialog("Próximas Evaluaciones", content, [
+            ft.TextButton("Cerrar", on_click=close_dialog),
+            ft.TextButton("Nueva", on_click=nueva_tarea)
+        ])
+
     def mostrar_perfil(e):
         total_materias = len(semestre)
         promedio = calcular_promedio_general(semestre)
@@ -120,6 +154,7 @@ def main(page: ft.Page):
         center_title=True,
         bgcolor="#042940",
         actions=[
+            ft.IconButton(ft.icons.NOTIFICATIONS, icon_color=ft.colors.WHITE, on_click=mostrar_agenda),
             ft.IconButton(ft.icons.ACCOUNT_CIRCLE, icon_color=ft.colors.WHITE, on_click=mostrar_perfil),
             ft.Container(width=10)
         ],
@@ -322,6 +357,11 @@ def main(page: ft.Page):
     page.floating_action_button_location = ft.FloatingActionButtonLocation.CENTER_DOCKED
 
     page.add(ft.Container(content=content_column, padding=20, expand=True))
+
+    total_pendientes = sum(len(getattr(m, 'pendientes', [])) for m in semestre)
+    if total_pendientes > 0:
+        page.open(ft.SnackBar(ft.Text(f"¡Recordatorio! Tienes {total_pendientes} evaluaciones próximas."), bgcolor=ft.colors.ORANGE_700))
+
     refresh_ui()
 
 if __name__ == "__main__":
