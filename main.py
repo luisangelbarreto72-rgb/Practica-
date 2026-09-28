@@ -34,10 +34,10 @@ def main(page: ft.Page):
             page.current_dialog = None
 
     def buscar_materia_global(e):
-        search_input = ft.TextField(label="Nombre de materia", autofocus=True)
+        search_input = ft.Dropdown(label="Selecciona la materia", options=[ft.dropdown.Option(m.nombre) for m in semestre], autofocus=True)
         def do_search(e):
             close_dialog(e)
-            refresh_ui(search_term=search_input.value.strip())
+            refresh_ui(search_term=search_input.value.strip() if search_input.value else "")
         show_dialog("Buscar Materia", search_input, [
             ft.TextButton("Limpiar", on_click=lambda e: (close_dialog(e), refresh_ui())),
             ft.TextButton("Buscar", on_click=do_search)
@@ -176,7 +176,7 @@ def main(page: ft.Page):
             if search_term:
                 filtered = buscar_materias(semestre, search_term)
             if only_approved:
-                filtered = [m for m in filtered if m.acumulado_notas >= getattr(m, 'nota_minima', 60)]
+                filtered = [m for m in filtered if getattr(m, 'acumulado_notas', 0) >= 60]
 
             if not filtered:
                 content_column.controls.append(ft.Text("No hay resultados.", color=text_sub))
