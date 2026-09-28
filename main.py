@@ -34,10 +34,17 @@ def main(page: ft.Page):
             page.current_dialog = None
 
     def buscar_materia_global(e):
-        search_input = ft.Dropdown(label="Selecciona la materia", options=[ft.dropdown.Option(m.nombre) for m in semestre], autofocus=True)
+        # Usamos Dropdown para que el usuario solo seleccione, sin tener que escribir exacto
+        search_input = ft.Dropdown(
+            label="Selecciona la materia", 
+            options=[ft.dropdown.Option(m.nombre) for m in semestre], 
+            autofocus=True
+        )
         def do_search(e):
             close_dialog(e)
-            refresh_ui(search_term=search_input.value.strip() if search_input.value else "")
+            # Forzamos la vista a "materias" para ver el resultado de forma limpia
+            refresh_ui(search_term=search_input.value if search_input.value else "", vista_actual="materias")
+        
         show_dialog("Buscar Materia", search_input, [
             ft.TextButton("Limpiar", on_click=lambda e: (close_dialog(e), refresh_ui())),
             ft.TextButton("Buscar", on_click=do_search)
@@ -106,7 +113,7 @@ def main(page: ft.Page):
             "",  # Título vacío para centrar la tarjeta
             content,
             [
-                ft.TextButton("Configuración", on_click=mostrar_configuracion), # ¡CABLE CONECTADO AQUÍ!
+                ft.TextButton("Configuración", on_click=mostrar_configuracion),
                 ft.TextButton("Cerrar sesión", on_click=lambda e: show_snack("Cierre de sesión en desarrollo...", ft.colors.BLUE)),
                 ft.TextButton("Cerrar", on_click=close_dialog)
             ]
@@ -166,7 +173,13 @@ def main(page: ft.Page):
             content_column.controls.append(ft.Container(content=ft.Text("Tus Materias", size=18, weight=ft.FontWeight.BOLD, color=text_main), padding=ft.padding.only(top=15, bottom=5, left=5)))
 
         elif vista_actual == "materias":
-            content_column.controls.append(ft.Container(content=ft.Text("Administración de Materias", size=20, weight=ft.FontWeight.BOLD, color=text_main), padding=ft.padding.only(top=10, bottom=10)))
+            titulo_vista = "Administración de Materias"
+            if only_approved:
+                titulo_vista = "Materias Aprobadas"
+            elif search_term:
+                titulo_vista = f"Búsqueda: {search_term}"
+            
+            content_column.controls.append(ft.Container(content=ft.Text(titulo_vista, size=20, weight=ft.FontWeight.BOLD, color=text_main), padding=ft.padding.only(top=10, bottom=10)))
 
         # 2. Lista Materias
         if not semestre:
@@ -176,7 +189,8 @@ def main(page: ft.Page):
             if search_term:
                 filtered = buscar_materias(semestre, search_term)
             if only_approved:
-                filtered = [m for m in filtered if getattr(m, 'acumulado_notas', 0) >= 60]
+                # Usamos la validación directa que sabemos que funciona en el resumen
+                filtered = [m for m in filtered if m.acumulado_notas >= 60]
 
             if not filtered:
                 content_column.controls.append(ft.Text("No hay resultados.", color=text_sub))
@@ -270,8 +284,9 @@ def main(page: ft.Page):
                 ])
 
             def materias_aprobadas_click(e):
-                refresh_ui(only_approved=True)
-                show_snack("Mostrando aprobadas", ft.colors.BLUE)
+                # Forzamos la vista a "materias" para ver la lista filtrada sola y limpia
+                refresh_ui(only_approved=True, vista_actual="materias")
+                show_snack("Mostrando materias aprobadas", ft.colors.BLUE)
 
             content_column.controls.append(ft.Container(height=10))
             content_column.controls.append(ft.Row([
