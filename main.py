@@ -1,4 +1,5 @@
 import flet as ft
+import datetime
 from core import (
     Materia, cargar_datos, guardar_datos, calcular_promedio_general,
     buscar_materias, eliminar_materia, exportar_boletin, agregar_pendiente
@@ -96,16 +97,25 @@ def main(page: ft.Page):
             close_dialog()
             materia_dropdown = ft.Dropdown(label="Selecciona la materia", options=[ft.dropdown.Option(m.nombre) for m in semestre], autofocus=True)
             nombre_tarea_input = ft.TextField(label="Nombre de la evaluación")
-            fecha_input = ft.TextField(label="Fecha (ej. DD/MM/AAAA)")
+
+            fecha_elegida = ft.Text("Ninguna fecha seleccionada")
+
+            def cambiar_fecha(e_date):
+                if e_date.control.value:
+                    fecha_elegida.value = e_date.control.value.strftime("%d/%m/%Y")
+                    page.update()
+
+            date_picker = ft.DatePicker(on_change=cambiar_fecha)
+            btn_fecha = ft.ElevatedButton(icon=ft.icons.CALENDAR_MONTH, text="Elegir Fecha", on_click=lambda _: page.open(date_picker))
 
             def save_tarea(e_save):
-                if materia_dropdown.value and nombre_tarea_input.value and fecha_input.value:
-                    if agregar_pendiente(semestre, materia_dropdown.value, nombre_tarea_input.value, fecha_input.value):
+                if materia_dropdown.value and nombre_tarea_input.value and fecha_elegida.value != "Ninguna fecha seleccionada":
+                    if agregar_pendiente(semestre, materia_dropdown.value, nombre_tarea_input.value, fecha_elegida.value):
                         guardar_datos(semestre)
                         close_dialog(e_save)
                         show_snack("Evaluación agregada exitosamente!", ft.colors.GREEN_600)
 
-            show_dialog("Nueva Evaluación", ft.Column([materia_dropdown, nombre_tarea_input, fecha_input], tight=True), [
+            show_dialog("Nueva Evaluación", ft.Column([materia_dropdown, nombre_tarea_input, btn_fecha, fecha_elegida], tight=True), [
                 ft.TextButton("Cancelar", on_click=close_dialog),
                 ft.TextButton("Guardar", on_click=save_tarea)
             ])
@@ -358,9 +368,25 @@ def main(page: ft.Page):
 
     page.add(ft.Container(content=content_column, padding=20, expand=True))
 
-    total_pendientes = sum(len(getattr(m, 'pendientes', [])) for m in semestre)
-    if total_pendientes > 0:
-        page.open(ft.SnackBar(ft.Text(f"¡Recordatorio! Tienes {total_pendientes} evaluaciones próximas."), bgcolor=ft.colors.ORANGE_700))
+    min_dias = None
+    tarea_proxima = None
+    materia_proxima = None
+
+    for m in semestre:
+        for tarea in getattr(m, 'pendientes', []):
+            try:
+                fecha_eval = datetime.datetime.strptime(tarea['fecha'], "%d/%m/%Y")
+                dias_restantes = (fecha_eval - datetime.datetime.now()).days
+                if 0 <= dias_restantes <= 7:
+                    if min_dias is None or dias_restantes < min_dias:
+                        min_dias = dias_restantes
+                        tarea_proxima = tarea
+                        materia_proxima = m.nombre
+            except ValueError:
+                pass
+
+    if tarea_proxima:
+        page.open(ft.SnackBar(ft.Text(f"¡A estudiar! Tienes {tarea_proxima['tarea']} de {materia_proxima} en {min_dias} días."), bgcolor=ft.colors.ORANGE_700))
 
     refresh_ui()
 
