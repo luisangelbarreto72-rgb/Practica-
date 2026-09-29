@@ -116,7 +116,7 @@ def main(page: ft.Page):
             date_picker = ft.DatePicker(on_change=cambiar_fecha, cancel_text="Cancelar", confirm_text="Aceptar", help_text="Seleccione una fecha")
             btn_fecha = ft.ElevatedButton(icon=ft.icons.CALENDAR_MONTH, text="Elegir Fecha", on_click=lambda _: page.open(date_picker))
 
-            recordatorio_drop = ft.Dropdown(label="Avisarme", options=[ft.dropdown.Option("1", "1 día antes"), ft.dropdown.Option("3", "3 días antes"), ft.dropdown.Option("7", "7 días antes")], value="3")
+            recordatorio_drop = ft.Dropdown(label="Avisarme", options=[ft.dropdown.Option("1", "1 día antes"), ft.dropdown.Option("2", "2 días antes"), ft.dropdown.Option("3", "3 días antes"), ft.dropdown.Option("7", "7 días antes")], value="3")
 
             def save_tarea(e_save):
                 if materia_dropdown.value and nombre_tarea_input.value and fecha_elegida.value != "Ninguna fecha seleccionada":
@@ -144,7 +144,7 @@ def main(page: ft.Page):
                         title=ft.Text(p.get("tarea", "")),
                         subtitle=ft.Text(f"{m.nombre} - {p.get('fecha', '')}"),
                         leading=ft.Icon(ft.icons.EVENT),
-                        trailing=ft.IconButton(ft.icons.DELETE, color=ft.colors.RED_400, on_click=lambda e, mat=m, tar=p: borrar_tarea(e, mat, tar))
+                       trailing=ft.IconButton(ft.icons.DELETE, icon_color=ft.colors.RED_400, on_click=lambda e, m=m, t=tarea: borrar_tarea(e, m, t))
                     )
                 )
 
