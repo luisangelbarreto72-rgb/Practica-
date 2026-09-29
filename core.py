@@ -172,11 +172,11 @@ def buscar_materias(
     return [m for m in lista_materias if texto.lower() in m.nombre.lower()]
 
 
-def agregar_pendiente(semestre: List[Materia], nombre_materia: str, nombre_tarea: str, fecha: str) -> bool:
-    """Añade un recordatorio de evaluación pendiente a una materia específica."""
+def agregar_pendiente(semestre: List[Materia], nombre_materia: str, nombre_tarea: str, fecha: str, dias_aviso: int = 7) -> bool:
+    """Añade un recordatorio de evaluación pendiente a una materia específica con aviso personalizado."""
     for materia in semestre:
         if materia.nombre.lower() == nombre_materia.lower():
-            materia.pendientes.append({"tarea": nombre_tarea, "fecha": fecha})
+            materia.pendientes.append({"tarea": nombre_tarea, "fecha": fecha, "dias_aviso": dias_aviso})
             return True
     return False
 
