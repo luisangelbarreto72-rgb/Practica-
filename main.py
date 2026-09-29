@@ -10,6 +10,7 @@ def main(page: ft.Page):
     page.window.width = 400
     page.window.height = 700
     page.bgcolor = "#F8F9FA"
+    page.locale_configuration = ft.LocaleConfiguration(supported_locales=[ft.Locale("es", "ES")], current_locale=ft.Locale("es", "ES"))
 
     semestre = cargar_datos()
     content_column = ft.Column(scroll=ft.ScrollMode.AUTO, expand=True)
@@ -105,25 +106,40 @@ def main(page: ft.Page):
                     fecha_elegida.value = e_date.control.value.strftime("%d/%m/%Y")
                     page.update()
 
-            date_picker = ft.DatePicker(on_change=cambiar_fecha)
+            date_picker = ft.DatePicker(on_change=cambiar_fecha, cancel_text="Cancelar", confirm_text="Aceptar", help_text="Seleccione una fecha")
             btn_fecha = ft.ElevatedButton(icon=ft.icons.CALENDAR_MONTH, text="Elegir Fecha", on_click=lambda _: page.open(date_picker))
+
+            recordatorio_drop = ft.Dropdown(label="Avisarme", options=[ft.dropdown.Option("1", "1 día antes"), ft.dropdown.Option("3", "3 días antes"), ft.dropdown.Option("7", "7 días antes")], value="3")
 
             def save_tarea(e_save):
                 if materia_dropdown.value and nombre_tarea_input.value and fecha_elegida.value != "Ninguna fecha seleccionada":
-                    if agregar_pendiente(semestre, materia_dropdown.value, nombre_tarea_input.value, fecha_elegida.value):
+                    if agregar_pendiente(semestre, materia_dropdown.value, nombre_tarea_input.value, fecha_elegida.value, int(recordatorio_drop.value)):
                         guardar_datos(semestre)
                         close_dialog(e_save)
                         show_snack("Evaluación agregada exitosamente!", ft.colors.GREEN_600)
 
-            show_dialog("Nueva Evaluación", ft.Column([materia_dropdown, nombre_tarea_input, btn_fecha, fecha_elegida], tight=True), [
+            show_dialog("Nueva Evaluación", ft.Column([materia_dropdown, nombre_tarea_input, btn_fecha, fecha_elegida, recordatorio_drop], tight=True), [
                 ft.TextButton("Cancelar", on_click=close_dialog),
                 ft.TextButton("Guardar", on_click=save_tarea)
             ])
 
+        def borrar_tarea(e_btn, materia, tarea_dict):
+            materia.pendientes.remove(tarea_dict)
+            guardar_datos(semestre)
+            close_dialog()
+            mostrar_agenda(None)
+
         list_tiles = []
         for m in semestre:
             for p in getattr(m, 'pendientes', []):
-                list_tiles.append(ft.ListTile(title=ft.Text(p.get("tarea", "")), subtitle=ft.Text(f"{m.nombre} - {p.get('fecha', '')}"), leading=ft.Icon(ft.icons.EVENT)))
+                list_tiles.append(
+                    ft.ListTile(
+                        title=ft.Text(p.get("tarea", "")),
+                        subtitle=ft.Text(f"{m.nombre} - {p.get('fecha', '')}"),
+                        leading=ft.Icon(ft.icons.EVENT),
+                        trailing=ft.IconButton(ft.icons.DELETE, color=ft.colors.RED_400, on_click=lambda e, mat=m, tar=p: borrar_tarea(e, mat, tar))
+                    )
+                )
 
         if not list_tiles:
             content = ft.Text("No tienes evaluaciones próximas")
@@ -377,7 +393,8 @@ def main(page: ft.Page):
             try:
                 fecha_eval = datetime.datetime.strptime(tarea['fecha'], "%d/%m/%Y")
                 dias_restantes = (fecha_eval - datetime.datetime.now()).days
-                if 0 <= dias_restantes <= 7:
+                aviso = tarea.get('dias_aviso', 7)
+                if 0 <= dias_restantes <= aviso:
                     if min_dias is None or dias_restantes < min_dias:
                         min_dias = dias_restantes
                         tarea_proxima = tarea
