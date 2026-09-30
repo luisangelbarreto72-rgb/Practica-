@@ -1,16 +1,1 @@
-[
-    {
-        "nombre": "Logica",
-        "nota_minima": 60.0,
-        "acumulado_notas": 100.0,
-        "puntos_totales_evaluados": 60.0,
-        "evaluaciones": [
-            {
-                "nombre": "Taller",
-                "puntos_ganados": 100.0,
-                "puntos_totales_prueba": 60.0
-            }
-        ],
-        "pendientes": []
-    }
-]
+[]
