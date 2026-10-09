@@ -1,11 +1,13 @@
 import flet as ft
 import datetime
+import hashlib
+import uuid
 from core import (
     Materia, cargar_datos, guardar_datos, calcular_promedio_general,
     buscar_materias, eliminar_materia, exportar_boletin, agregar_pendiente
 )
 
-def main(page: ft.Page):
+def cargar_interfaz_principal(page: ft.Page):
     page.title = "Gestor Académico"
     page.window.width = 400
     page.window.height = 700
@@ -421,6 +423,58 @@ def main(page: ft.Page):
         page.open(ft.SnackBar(ft.Text(f"¡A estudiar! Tienes {tarea_proxima['tarea']} de {materia_proxima} en {min_dias} días."), bgcolor=ft.colors.ORANGE_700))
 
     refresh_ui()
+
+def generar_clave_esperada(codigo_instalacion):
+    cadena = f"{codigo_instalacion}LUIS_GESTOR_PRO_2026"
+    hash_obj = hashlib.sha256(cadena.encode('utf-8'))
+    return hash_obj.hexdigest()[:8].upper()
+
+def main(page: ft.Page):
+    if page.client_storage.get("licencia_activa"):
+        cargar_interfaz_principal(page)
+        return
+
+    codigo = page.client_storage.get("codigo_instalacion")
+    if not codigo:
+        codigo = str(uuid.uuid4())[:8].upper()
+        page.client_storage.set("codigo_instalacion", codigo)
+
+    page.title = "Activación - Gestor Académico"
+    page.window.width = 400
+    page.window.height = 700
+    page.bgcolor = "#F8F9FA"
+    page.vertical_alignment = ft.MainAxisAlignment.CENTER
+    page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
+
+    clave_input = ft.TextField(
+        label="Clave de Activación",
+        text_align=ft.TextAlign.CENTER,
+        capitalization=ft.TextCapitalization.CHARACTERS,
+        width=250
+    )
+
+    def verificar_clave(e):
+        clave_esperada = generar_clave_esperada(codigo)
+        if clave_input.value.strip().upper() == clave_esperada:
+            page.client_storage.set("licencia_activa", True)
+            page.controls.clear()
+            page.update()
+            cargar_interfaz_principal(page)
+        else:
+            page.open(ft.SnackBar(ft.Text("Clave incorrecta. Contacte al administrador."), bgcolor=ft.colors.RED_600))
+
+    lock_screen = ft.Column([
+        ft.Icon(ft.icons.LOCK, size=80, color="#042940"),
+        ft.Text("Aplicación Bloqueada", size=24, weight=ft.FontWeight.BOLD, color="#042940"),
+        ft.Container(height=10),
+        ft.Text("Envía este código por WhatsApp para obtener tu licencia:", text_align=ft.TextAlign.CENTER, color="#64748B"),
+        ft.Text(codigo, size=22, weight=ft.FontWeight.BOLD, color=ft.colors.RED_600, selectable=True),
+        ft.Container(height=20),
+        clave_input,
+        ft.ElevatedButton("Verificar y Desbloquear", on_click=verificar_clave, color=ft.colors.WHITE, bgcolor="#042940")
+    ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, alignment=ft.MainAxisAlignment.CENTER, expand=True)
+
+    page.add(lock_screen)
 
 if __name__ == "__main__":
     ft.app(target=main)
