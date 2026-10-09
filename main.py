@@ -2,10 +2,13 @@ import flet as ft
 import datetime
 import hashlib
 import uuid
+import requests
 from core import (
     Materia, cargar_datos, guardar_datos, calcular_promedio_general,
     buscar_materias, eliminar_materia, exportar_boletin, agregar_pendiente
 )
+
+VERSION_ACTUAL = "1.0.0"
 
 def cargar_interfaz_principal(page: ft.Page):
     page.title = "Gestor Académico"
@@ -16,6 +19,29 @@ def cargar_interfaz_principal(page: ft.Page):
 
     semestre = cargar_datos()
     content_column = ft.Column(scroll=ft.ScrollMode.AUTO, expand=True)
+
+    # --- ACTUALIZACIÓN OTA ---
+    try:
+        respuesta = requests.get("https://raw.githubusercontent.com/luisangelbarreto72-rgb/Practica-/main/version.json", timeout=3)
+        datos_version = respuesta.json()
+        if datos_version.get("version") > VERSION_ACTUAL:
+            def descargar_actualizacion(e):
+                page.launch_url(datos_version.get("url_descarga"))
+
+            def cerrar_aviso_actualizacion(e):
+                page.close(dlg_actualizacion)
+
+            dlg_actualizacion = ft.AlertDialog(
+                title=ft.Text("¡Nueva versión disponible!"),
+                content=ft.Text(f"Se ha encontrado la versión {datos_version.get('version')}. ¿Deseas descargarla ahora?"),
+                actions=[
+                    ft.TextButton("Más tarde", on_click=cerrar_aviso_actualizacion),
+                    ft.TextButton("Descargar", on_click=descargar_actualizacion)
+                ]
+            )
+            page.open(dlg_actualizacion)
+    except requests.RequestException:
+        pass
 
     # --- FUNCIONES GLOBALES DE UI ---
     def show_snack(text, color=None):
@@ -182,6 +208,7 @@ def cargar_interfaz_principal(page: ft.Page):
         center_title=True,
         bgcolor="#042940",
         actions=[
+            ft.IconButton(ft.icons.FEEDBACK, icon_color=ft.colors.WHITE, on_click=lambda e: page.launch_url("mailto:luisangelbarreto72@gmail.com?subject=Sugerencia%20Gestor%20Academico")),
             ft.IconButton(ft.icons.NOTIFICATIONS, icon_color=ft.colors.WHITE, on_click=mostrar_agenda),
             ft.IconButton(ft.icons.ACCOUNT_CIRCLE, icon_color=ft.colors.WHITE, on_click=mostrar_perfil),
             ft.Container(width=10)
