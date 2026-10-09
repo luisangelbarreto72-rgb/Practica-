@@ -190,11 +190,25 @@ def cargar_interfaz_principal(page: ft.Page):
         total_materias = len(semestre)
         promedio = calcular_promedio_general(semestre)
 
+        tarjeta_soporte = ft.Container(
+            content=ft.ListTile(
+                leading=ft.Icon(ft.icons.SUPPORT_AGENT, color="#042940"),
+                title=ft.Text("Soporte y Sugerencias", weight=ft.FontWeight.BOLD),
+                subtitle=ft.Text("Envíanos tus ideas o reporta un problema", size=12),
+                trailing=ft.Icon(ft.icons.CHEVRON_RIGHT),
+                on_click=lambda e: page.launch_url("mailto:luisangelbarreto72@gmail.com?subject=Sugerencia%20Gestor%20Academico")
+            ),
+            border_radius=10,
+            border=ft.border.all(1, "#E2E8F0"),
+            margin=ft.margin.only(top=10)
+        )
+
         content = ft.Column([
             ft.Icon(ft.icons.ACCOUNT_CIRCLE, size=80, color="#042940"),
             ft.Text("Estudiante", size=22, weight=ft.FontWeight.BOLD, text_align=ft.TextAlign.CENTER),
             ft.Text(f"Total de Materias: {total_materias}", size=16),
-            ft.Text(f"Promedio Actual: {promedio}%", size=16)
+            ft.Text(f"Promedio Actual: {promedio}%", size=16),
+            tarjeta_soporte
         ], alignment=ft.MainAxisAlignment.CENTER, horizontal_alignment=ft.CrossAxisAlignment.CENTER, tight=True)
 
         show_dialog(
@@ -215,7 +229,6 @@ def cargar_interfaz_principal(page: ft.Page):
         center_title=True,
         bgcolor="#042940",
         actions=[
-            ft.IconButton(ft.icons.FEEDBACK, icon_color=ft.colors.WHITE, on_click=lambda e: page.launch_url("mailto:luisangelbarreto72@gmail.com?subject=Sugerencia%20Gestor%20Academico")),
             ft.IconButton(ft.icons.NOTIFICATIONS, icon_color=ft.colors.WHITE, on_click=mostrar_agenda),
             ft.IconButton(ft.icons.ACCOUNT_CIRCLE, icon_color=ft.colors.WHITE, on_click=mostrar_perfil),
             ft.Container(width=10)
