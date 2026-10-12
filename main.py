@@ -43,6 +43,37 @@ def cargar_interfaz_principal(page: ft.Page):
     except requests.RequestException:
         pass
 
+    # --- COPIA DE SEGURIDAD LOCAL ---
+    import json
+    def guardar_backup(e: ft.FilePickerResultEvent):
+        if e.path:
+            try:
+                with open(e.path, "w", encoding="utf-8") as f:
+                    json.dump([m.to_dict() for m in semestre], f, indent=4)
+                show_snack("Copia de seguridad guardada exitosamente.", ft.colors.GREEN_600)
+            except Exception as ex:
+                show_snack(f"Error al guardar: {ex}", ft.colors.RED_600)
+
+    def restaurar_backup(e: ft.FilePickerResultEvent):
+        if e.files and len(e.files) > 0:
+            try:
+                with open(e.files[0].path, "r", encoding="utf-8") as f:
+                    datos = json.load(f)
+                    semestre.clear()
+                    for d in datos:
+                        m = Materia.from_dict(d)
+                        if m:
+                            semestre.append(m)
+                guardar_datos(semestre)
+                show_snack("Datos restaurados correctamente.", ft.colors.GREEN_600)
+                refresh_ui()
+            except Exception as ex:
+                show_snack(f"Error al restaurar: {ex}", ft.colors.RED_600)
+
+    save_file_dialog = ft.FilePicker(on_result=guardar_backup)
+    pick_files_dialog = ft.FilePicker(on_result=restaurar_backup)
+    page.overlay.extend([save_file_dialog, pick_files_dialog])
+
     # --- FUNCIONES GLOBALES DE UI ---
     def show_snack(text, color=None):
         snack = ft.SnackBar(ft.Text(text), bgcolor=color)
@@ -183,6 +214,9 @@ def cargar_interfaz_principal(page: ft.Page):
         total_materias = len(semestre)
         promedio = calcular_promedio_general(semestre)
 
+        btn_backup = ft.ElevatedButton("Crear Copia de Seguridad", on_click=lambda _: save_file_dialog.save_file(file_name="backup_gestor.json"))
+        btn_restore = ft.ElevatedButton("Restaurar Datos", on_click=lambda _: pick_files_dialog.pick_files(allow_multiple=False))
+
         tarjeta_soporte = ft.Container(
             content=ft.ListTile(
                 leading=ft.Icon(ft.icons.SUPPORT_AGENT, color="#042940"),
@@ -201,7 +235,10 @@ def cargar_interfaz_principal(page: ft.Page):
             ft.Text("Estudiante", size=22, weight=ft.FontWeight.BOLD, text_align=ft.TextAlign.CENTER),
             ft.Text(f"Total de Materias: {total_materias}", size=16),
             ft.Text(f"Promedio Actual: {promedio}%", size=16),
-            tarjeta_soporte
+            tarjeta_soporte,
+            ft.Container(height=10),
+            btn_backup,
+            btn_restore
         ], alignment=ft.MainAxisAlignment.CENTER, horizontal_alignment=ft.CrossAxisAlignment.CENTER, tight=True)
 
         show_dialog(
@@ -284,6 +321,48 @@ def cargar_interfaz_principal(page: ft.Page):
             if not filtered:
                 content_column.controls.append(ft.Text("No hay resultados.", color=text_sub))
 
+            def abrir_simulador(e_btn, mat):
+                simulados_state = [0.0]
+                lista_simulaciones = ft.Column()
+                nota_input = ft.TextField(label="Nota (0-100)", width=120, keyboard_type=ft.KeyboardType.NUMBER)
+                peso_input = ft.TextField(label="Peso (%)", width=100, keyboard_type=ft.KeyboardType.NUMBER)
+
+                resultado_text = ft.Text(f"Promedio simulado: {mat.acumulado_notas}/100", weight=ft.FontWeight.BOLD, size=16, color=ft.colors.BLUE_700)
+
+                def add_row(e_add):
+                    try:
+                        nota = float(nota_input.value)
+                        peso = float(peso_input.value)
+                        if 0 <= nota <= 100 and peso > 0:
+                            puntos_obtenidos = (nota * peso) / 100
+                            simulados_state[0] += puntos_obtenidos
+                            lista_simulaciones.controls.append(
+                                ft.Text(f"+ {round(puntos_obtenidos, 2)} pts (Nota: {nota}, Peso: {peso}%)")
+                            )
+                            nuevo_promedio = mat.acumulado_notas + simulados_state[0]
+                            resultado_text.value = f"Promedio simulado: {round(nuevo_promedio, 2)}/100"
+                            nota_input.value = ""
+                            peso_input.value = ""
+                            page.update()
+                    except ValueError:
+                        pass
+
+                dlg_simulador = ft.AlertDialog(
+                    title=ft.Text(f"Simulador: {mat.nombre}"),
+                    content=ft.Column([
+                        ft.Text(f"Puntaje acumulado: {mat.acumulado_notas}/100", weight=ft.FontWeight.W_500),
+                        ft.Container(height=10),
+                        ft.Row([nota_input, peso_input]),
+                        ft.ElevatedButton("Añadir Nota Ficticia", on_click=add_row),
+                        ft.Container(height=10),
+                        lista_simulaciones,
+                        ft.Container(height=10),
+                        resultado_text
+                    ], tight=True, scroll=ft.ScrollMode.AUTO),
+                    actions=[ft.TextButton("Cerrar", on_click=lambda e: page.close(dlg_simulador))]
+                )
+                page.open(dlg_simulador)
+
             for materia in filtered:
                 ganados = round(materia.acumulado_notas, 2)
                 faltantes = max(0, 100 - ganados)
@@ -292,7 +371,8 @@ def cargar_interfaz_principal(page: ft.Page):
                         ft.Text(materia.nombre, size=16, color=text_main),
                         ft.Text(f"{ganados}", size=18, weight=ft.FontWeight.BOLD, color=text_main),
                         ft.ProgressBar(value=ganados / 100 if ganados > 0 else 0, color=text_main, bgcolor=border_col, height=10),
-                        ft.Text(f"Puntaje: {ganados}/100, Faltan: {faltantes}", size=12, color=text_sub)
+                        ft.Text(f"Puntaje: {ganados}/100, Faltan: {faltantes}", size=12, color=text_sub),
+                        ft.ElevatedButton("Simulador de Notas", on_click=lambda e, m=materia: abrir_simulador(e, m))
                     ]),
                     bgcolor=card_bg, border_radius=10, padding=15, margin=ft.margin.only(bottom=10),
                     shadow=ft.BoxShadow(spread_radius=0, blur_radius=2, color=ft.colors.BLACK12, offset=ft.Offset(0, 1)),
