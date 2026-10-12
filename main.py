@@ -338,7 +338,8 @@ def cargar_interfaz_principal(page: ft.Page):
             def abrir_simulador(e_btn, mat):
                 simulados_state = [0.0]
                 lista_simulaciones = ft.Column()
-                nota_input = ft.TextField(label="Nota (0-100)", width=120, keyboard_type=ft.KeyboardType.NUMBER)
+                nota_input = ft.TextField(label="Nota Obtenida", width=120, keyboard_type=ft.KeyboardType.NUMBER)
+                maxima_input = ft.TextField(label="Nota Máxima", width=120, keyboard_type=ft.KeyboardType.NUMBER)
                 peso_input = ft.TextField(label="Peso (%)", width=100, keyboard_type=ft.KeyboardType.NUMBER)
 
                 resultado_text = ft.Text(f"Promedio simulado: {mat.acumulado_notas}/100", weight=ft.FontWeight.BOLD, size=16, color=ft.colors.BLUE_700)
@@ -346,16 +347,31 @@ def cargar_interfaz_principal(page: ft.Page):
                 def add_row(e_add):
                     try:
                         nota = float(nota_input.value)
+                        maxima = float(maxima_input.value)
                         peso = float(peso_input.value)
-                        if 0 <= nota <= 100 and peso > 0:
-                            puntos_obtenidos = (nota * peso) / 100
+                        if maxima > 0 and peso > 0:
+                            puntos_obtenidos = (nota / maxima) * peso
                             simulados_state[0] += puntos_obtenidos
-                            lista_simulaciones.controls.append(
-                                ft.Text(f"+ {round(puntos_obtenidos, 2)} pts (Nota: {nota}, Peso: {peso}%)")
-                            )
+
+                            def delete_row(e_del, pts_to_remove, row_ref):
+                                simulados_state[0] -= pts_to_remove
+                                lista_simulaciones.controls.remove(row_ref)
+                                nuevo_promedio = mat.acumulado_notas + simulados_state[0]
+                                resultado_text.value = f"Promedio simulado: {round(nuevo_promedio, 2)}/100"
+                                page.update()
+
+                            new_row = ft.Row([
+                                ft.Text(f"+ {round(puntos_obtenidos, 2)} pts (Nota: {nota}/{maxima}, Peso: {peso}%)"),
+                                ft.IconButton(ft.icons.DELETE, icon_color=ft.colors.RED_400)
+                            ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
+
+                            new_row.controls[1].on_click = lambda e, pts=puntos_obtenidos, r=new_row: delete_row(e, pts, r)
+
+                            lista_simulaciones.controls.append(new_row)
                             nuevo_promedio = mat.acumulado_notas + simulados_state[0]
                             resultado_text.value = f"Promedio simulado: {round(nuevo_promedio, 2)}/100"
                             nota_input.value = ""
+                            maxima_input.value = ""
                             peso_input.value = ""
                             page.update()
                     except ValueError:
@@ -366,7 +382,7 @@ def cargar_interfaz_principal(page: ft.Page):
                     content=ft.Column([
                         ft.Text(f"Puntaje acumulado: {mat.acumulado_notas}/100", weight=ft.FontWeight.W_500),
                         ft.Container(height=10),
-                        ft.Row([nota_input, peso_input]),
+                        ft.Row([nota_input, maxima_input, peso_input], wrap=True),
                         ft.ElevatedButton("Añadir Nota Ficticia", on_click=add_row),
                         ft.Container(height=10),
                         lista_simulaciones,
