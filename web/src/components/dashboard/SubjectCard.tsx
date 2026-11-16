@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { FlaskConical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,11 +16,17 @@ export function SubjectCard({ metrics, onSimulate }: SubjectCardProps) {
   const { subject, earnedPoints, minPassingGrade, pointsNeededToPass, isPassing } = metrics;
 
   return (
-    <Card>
+    <Card className="relative transition-shadow hover:ring-2 hover:ring-ring/40">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
           <span className="size-3 rounded-full" style={{ backgroundColor: subject.color_hex }} />
-          {subject.name}
+          {/* Enlace estirado: toda la tarjeta navega a la página de la materia */}
+          <Link
+            href={`/subjects/${subject.id}`}
+            className="outline-none after:absolute after:inset-0 after:rounded-[inherit] focus-visible:after:ring-2 focus-visible:after:ring-ring"
+          >
+            {subject.name}
+          </Link>
         </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
@@ -50,7 +57,7 @@ export function SubjectCard({ metrics, onSimulate }: SubjectCardProps) {
             : `Te faltan ${pointsNeededToPass} pts para aprobar (mín. ${minPassingGrade})`}
         </p>
 
-        <Button variant="secondary" size="sm" className="mt-1 w-full" onClick={onSimulate}>
+        <Button variant="secondary" size="sm" className="relative z-10 mt-1 w-full" onClick={onSimulate}>
           <FlaskConical className="size-4" /> Simulador de Notas
         </Button>
       </CardContent>

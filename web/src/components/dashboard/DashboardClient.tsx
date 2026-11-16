@@ -10,17 +10,18 @@ import { UpcomingEvaluationsWidget } from "@/components/dashboard/UpcomingEvalua
 import { GradeSimulatorDrawer } from "@/components/simulator/GradeSimulatorDrawer";
 import { SubjectCard } from "@/components/dashboard/SubjectCard";
 import { calculateOverallAverage, calculateSubjectMetrics, getUpcomingEvaluations, type SubjectMetrics } from "@/lib/academic-math";
-import { MOCK_MIN_PASSING_GRADE, mockEvaluations, mockSubjects } from "@/lib/mock-data";
+import { useData } from "@/components/data-provider";
 
 export function DashboardClient() {
+  const { subjects, evaluations, minPassingGrade } = useData();
   const { resolvedTheme, setTheme } = useTheme();
 
   const metrics = useMemo(
-    () => mockSubjects.map((s) => calculateSubjectMetrics(s, mockEvaluations, MOCK_MIN_PASSING_GRADE)),
-    []
+    () => subjects.map((s) => calculateSubjectMetrics(s, evaluations, minPassingGrade)),
+    [subjects, evaluations, minPassingGrade]
   );
   const average = calculateOverallAverage(metrics);
-  const upcoming = useMemo(() => getUpcomingEvaluations(mockEvaluations, mockSubjects), []);
+  const upcoming = useMemo(() => getUpcomingEvaluations(evaluations, subjects), [evaluations, subjects]);
   const [simulatingId, setSimulatingId] = useState<string | null>(null);
   const simulating: SubjectMetrics | null = metrics.find((m) => m.subject.id === simulatingId) ?? null;
   const passingCount = metrics.filter((m) => m.isPassing).length;
@@ -52,7 +53,7 @@ export function DashboardClient() {
                 average={average}
                 passingCount={passingCount}
                 totalSubjects={metrics.length}
-                minPassingGrade={MOCK_MIN_PASSING_GRADE}
+                minPassingGrade={minPassingGrade}
               />
             </CardContent>
           </Card>
