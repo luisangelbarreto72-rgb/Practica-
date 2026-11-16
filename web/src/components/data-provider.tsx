@@ -16,6 +16,8 @@ interface DataContextValue {
   evaluations: Evaluation[];
   minPassingGrade: number;
   addEvaluation: (data: NewEvaluationData) => void;
+  /** Convierte una evaluación pendiente en calificada con su nota. */
+  gradeEvaluation: (id: string, earnedScore: number, maxScore: number) => void;
 }
 
 const DataContext = createContext<DataContextValue | null>(null);
@@ -45,9 +47,31 @@ export function DataProvider({ children }: { children: ReactNode }) {
     ]);
   }, []);
 
+  const gradeEvaluation = useCallback((id: string, earnedScore: number, maxScore: number) => {
+    setEvaluations((prev) =>
+      prev.map((e) =>
+        e.id === id
+          ? {
+              ...e,
+              status: "graded",
+              earned_score: earnedScore,
+              max_score: maxScore,
+              updated_at: new Date().toISOString(),
+            }
+          : e
+      )
+    );
+  }, []);
+
   const value = useMemo(
-    () => ({ subjects: mockSubjects, evaluations, minPassingGrade: MOCK_MIN_PASSING_GRADE, addEvaluation }),
-    [evaluations, addEvaluation]
+    () => ({
+      subjects: mockSubjects,
+      evaluations,
+      minPassingGrade: MOCK_MIN_PASSING_GRADE,
+      addEvaluation,
+      gradeEvaluation,
+    }),
+    [evaluations, addEvaluation, gradeEvaluation]
   );
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;

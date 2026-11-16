@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/table";
 import { useData } from "@/components/data-provider";
 import { EvaluationFormModal } from "@/components/evaluations/EvaluationFormModal";
+import { GradeEvaluationModal } from "@/components/evaluations/GradeEvaluationModal";
 import { calculateEvaluationPoints, calculateSubjectMetrics } from "@/lib/academic-math";
 import type { Evaluation } from "@/types/database";
 
@@ -36,8 +37,10 @@ function sortEvaluations(list: Evaluation[]): Evaluation[] {
 }
 
 export function SubjectDetailClient({ subjectId }: { subjectId: string }) {
-  const { subjects, evaluations, minPassingGrade, addEvaluation } = useData();
+  const { subjects, evaluations, minPassingGrade, addEvaluation, gradeEvaluation } = useData();
   const [formOpen, setFormOpen] = useState(false);
+  const [gradingId, setGradingId] = useState<string | null>(null);
+  const grading = evaluations.find((e) => e.id === gradingId) ?? null;
 
   const subject = subjects.find((s) => s.id === subjectId);
   const metrics = useMemo(
@@ -124,7 +127,24 @@ export function SubjectDetailClient({ subjectId }: { subjectId: string }) {
                     {subjectEvaluations.map((ev) => {
                       const graded = ev.status === "graded" && ev.earned_score !== null;
                       return (
-                        <TableRow key={ev.id}>
+                        <TableRow
+                          key={ev.id}
+                          {...(graded
+                            ? {}
+                            : {
+                                role: "button",
+                                tabIndex: 0,
+                                "aria-label": "Calificar " + ev.title,
+                                onClick: () => setGradingId(ev.id),
+                                onKeyDown: (e: React.KeyboardEvent) => {
+                                  if (e.key === "Enter" || e.key === " ") {
+                                    e.preventDefault();
+                                    setGradingId(ev.id);
+                                  }
+                                },
+                              })}
+                          className={graded ? undefined : "cursor-pointer focus-visible:bg-muted/60 focus-visible:outline-none"}
+                        >
                           <TableCell className="font-medium">{ev.title}</TableCell>
                           <TableCell className="whitespace-nowrap">{formatDate(ev.due_date)}</TableCell>
                           <TableCell className="text-right tabular-nums">{ev.weight_percentage}%</TableCell>
@@ -147,7 +167,7 @@ export function SubjectDetailClient({ subjectId }: { subjectId: string }) {
                               </Badge>
                             ) : (
                               <Badge className="border-0 bg-amber-500/15 text-amber-600 dark:text-amber-400">
-                                Pendiente
+                                Pendiente · Calificar
                               </Badge>
                             )}
                           </TableCell>
@@ -161,6 +181,16 @@ export function SubjectDetailClient({ subjectId }: { subjectId: string }) {
           </Card>
         </section>
       </main>
+
+      <GradeEvaluationModal
+        evaluation={grading}
+        onClose={() => setGradingId(null)}
+        onSubmit={(id, earned, max) => {
+          gradeEvaluation(id, earned, max);
+          setGradingId(null);
+          toast.success("Nota guardada");
+        }}
+      />
 
       <EvaluationFormModal
         open={formOpen}
