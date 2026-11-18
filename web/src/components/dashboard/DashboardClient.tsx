@@ -5,6 +5,7 @@ import { GraduationCap, Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { SignOutButton } from "@/components/auth/SignOutButton";
 import { OverallAverageCard } from "@/components/dashboard/OverallAverageCard";
 import { UpcomingEvaluationsWidget } from "@/components/dashboard/UpcomingEvaluationsWidget";
 import { GradeSimulatorDrawer } from "@/components/simulator/GradeSimulatorDrawer";
@@ -33,6 +34,7 @@ export function DashboardClient() {
           <div className="flex items-center gap-2 font-semibold">
             <GraduationCap className="size-5" /> Gestor Académico
           </div>
+          <div className="flex items-center">
           <Button
             variant="ghost"
             size="icon"
@@ -42,6 +44,8 @@ export function DashboardClient() {
             <Sun className="size-4 dark:hidden" />
             <Moon className="hidden size-4 dark:block" />
           </Button>
+            <SignOutButton />
+          </div>
         </div>
       </header>
 
