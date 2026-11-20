@@ -23,3 +23,16 @@ export interface EvaluationPatch {
   status?: EvaluationStatus;
   reminder_days?: number;
 }
+
+export interface ClassBlockInput {
+  subject_id: string;
+  day_of_week: number;
+  start_time: string; // HH:MM
+  end_time: string;
+  room: string | null;
+}
+
+export interface ProfileData {
+  full_name: string | null;
+  default_min_passing_grade: number;
+}

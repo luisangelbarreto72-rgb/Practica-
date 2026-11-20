@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { GraduationCap, Moon, Plus, Sparkles, Sun } from "lucide-react";
+import { GraduationCap, Moon, Plus, Settings, Sparkles, Sun } from "lucide-react";
 import { toast } from "sonner";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
@@ -17,11 +17,16 @@ import { EvaluationFormModal } from "@/components/evaluations/EvaluationFormModa
 import { GradeEvaluationModal } from "@/components/evaluations/GradeEvaluationModal";
 import { SubjectFormModal } from "@/components/subjects/SubjectFormModal";
 import { ConfirmDialog } from "@/components/ui-extra/ConfirmDialog";
+import { SettingsModal } from "@/components/settings/SettingsModal";
+import { TasksCard } from "@/components/tasks/TasksCard";
+import { WeeklySchedule } from "@/components/schedule/WeeklySchedule";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import type { Subject } from "@/types/database";
 
 export function DashboardClient() {
   const {
     subjects, evaluations, minPassingGrade, loading, loadError,
+    fullName, userEmail, tasks, extrasError, updateProfile, addTask, toggleTask, deleteTask,
     addSubject, updateSubject, deleteSubject, addEvaluation, gradeEvaluation, seedSampleData,
   } = useData();
   const { resolvedTheme, setTheme } = useTheme();
@@ -40,26 +45,44 @@ export function DashboardClient() {
   const grading = evaluations.find((e) => e.id === gradingId) ?? null;
   const [evalFormOpen, setEvalFormOpen] = useState(false);
   const [seeding, setSeeding] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const evalCounts = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const e of evaluations) m.set(e.subject_id, (m.get(e.subject_id) ?? 0) + 1);
+    return m;
+  }, [evaluations]);
+  const displayName = fullName ?? (userEmail ? userEmail.split("@")[0] : null);
+  const today = new Date().toLocaleDateString("es", { weekday: "long", day: "numeric", month: "long" });
   const isEmpty = !loading && subjects.length === 0;
   const passingCount = metrics.filter((m) => m.isPassing).length;
 
   return (
     <div className="min-h-screen bg-muted/30">
-      <header className="sticky top-0 z-10 border-b bg-background/80 backdrop-blur">
-        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
-          <div className="flex items-center gap-2 font-semibold">
-            <GraduationCap className="size-5" /> Gestor Académico
+      {/* z-40 + fondo sólido: el contenido (incluidos los elementos con z-10 de las tarjetas) pasa por debajo */}
+      <header className="sticky top-0 z-40 border-b bg-background shadow-xs">
+        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <GraduationCap className="size-5 shrink-0" />
+            <div className="min-w-0 leading-tight">
+              <p className="truncate font-semibold">
+                {displayName ? `Hola, ${displayName}` : "Gestor Académico"}
+              </p>
+              <p className="truncate text-xs text-muted-foreground first-letter:uppercase">{today}</p>
+            </div>
           </div>
-          <div className="flex items-center">
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="Cambiar tema"
-            onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
-          >
-            <Sun className="size-4 dark:hidden" />
-            <Moon className="hidden size-4 dark:block" />
-          </Button>
+          <div className="flex shrink-0 items-center">
+            <Button variant="ghost" size="icon" aria-label="Configuración" title="Configuración" onClick={() => setSettingsOpen(true)}>
+              <Settings className="size-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Cambiar tema"
+              onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
+            >
+              <Sun className="size-4 dark:hidden" />
+              <Moon className="hidden size-4 dark:block" />
+            </Button>
             <SignOutButton />
           </div>
         </div>
@@ -73,7 +96,15 @@ export function DashboardClient() {
         )}
         {loading ? (
           <p className="py-20 text-center text-sm text-muted-foreground">Cargando tus materias…</p>
-        ) : isEmpty ? (
+        ) : (
+          <Tabs defaultValue="resumen" className="gap-5">
+            <TabsList>
+              <TabsTrigger value="resumen">Resumen</TabsTrigger>
+              <TabsTrigger value="horario">Horario semanal</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="resumen" className="space-y-6">
+              {isEmpty ? (
           <Card>
             <CardContent className="flex flex-col items-center gap-4 py-16 text-center">
               <GraduationCap className="size-10 text-muted-foreground" />
@@ -102,8 +133,8 @@ export function DashboardClient() {
               </div>
             </CardContent>
           </Card>
-        ) : (
-          <>
+              ) : (
+                <div>
             <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
               <Card className="lg:col-span-1">
                 <CardContent>
@@ -139,15 +170,45 @@ export function DashboardClient() {
                     key={m.subject.id}
                     metrics={m}
                     onSimulate={() => setSimulatingId(m.subject.id)}
+                    evaluationCount={evalCounts.get(m.subject.id) ?? 0}
                     onEdit={() => setSubjectModal({ open: true, subject: m.subject })}
                     onDelete={() => setDeleting(m.subject)}
                   />
                 ))}
               </div>
             </section>
-          </>
+                </div>
+              )}
+
+              <TasksCard
+                tasks={tasks}
+                error={extrasError}
+                onAdd={addTask}
+                onToggle={toggleTask}
+                onDelete={deleteTask}
+              />
+            </TabsContent>
+
+            <TabsContent value="horario">
+              <WeeklySchedule />
+            </TabsContent>
+          </Tabs>
         )}
       </main>
+
+      <SettingsModal
+        open={settingsOpen}
+        fullName={fullName}
+        minPassingGrade={minPassingGrade}
+        onOpenChange={setSettingsOpen}
+        onSubmit={async (data) => {
+          const ok = await updateProfile(data);
+          if (ok) {
+            setSettingsOpen(false);
+            toast.success("Configuración guardada");
+          }
+        }}
+      />
 
       <GradeSimulatorDrawer metrics={simulating} onClose={() => setSimulatingId(null)} />
 

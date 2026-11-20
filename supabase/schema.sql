@@ -4,6 +4,8 @@
 -- Es idempotente en lo posible: si lo ejecutas dos veces, fallará en "CREATE TABLE"
 -- (borra las tablas primero si quieres empezar de cero).
 -- Coincide con web/src/types/database.ts
+-- NOTA: las tablas de tareas y horario (tasks, class_blocks) están en
+--       supabase/migrations/002_tasks_and_schedule.sql (ejecútala después de este archivo).
 -- ============================================================================
 
 -- 1. PROFILES: extiende auth.users con preferencias del estudiante ------------

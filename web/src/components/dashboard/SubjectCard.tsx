@@ -10,12 +10,14 @@ import type { SubjectMetrics } from "@/lib/academic-math";
 interface SubjectCardProps {
   metrics: SubjectMetrics;
   onSimulate: () => void;
+  /** Cantidad de evaluaciones registradas (pendientes y calificadas) */
+  evaluationCount?: number;
   onEdit?: () => void;
   onDelete?: () => void;
 }
 
-export function SubjectCard({ metrics, onSimulate, onEdit, onDelete }: SubjectCardProps) {
-  const { subject, earnedPoints, minPassingGrade, pointsNeededToPass, isPassing } = metrics;
+export function SubjectCard({ metrics, onSimulate, evaluationCount, onEdit, onDelete }: SubjectCardProps) {
+  const { subject, earnedPoints, evaluatedWeight, minPassingGrade, pointsNeededToPass, isPassing } = metrics;
 
   return (
     <Card className="relative transition-shadow hover:ring-2 hover:ring-ring/40">
@@ -60,6 +62,16 @@ export function SubjectCard({ metrics, onSimulate, onEdit, onDelete }: SubjectCa
             title={`Nota mínima: ${minPassingGrade}`}
           />
         </div>
+
+        {/* Contexto: distingue una nota baja de una materia sin notas cargadas */}
+        <p className="flex flex-wrap justify-between gap-x-3 text-xs text-muted-foreground">
+          <span>Evaluado: {evaluatedWeight}% de 100%</span>
+          {evaluationCount !== undefined && (
+            <span>
+              {evaluationCount} {evaluationCount === 1 ? "evaluación" : "evaluaciones"}
+            </span>
+          )}
+        </p>
 
         <p
           className={

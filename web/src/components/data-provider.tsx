@@ -12,20 +12,35 @@ import {
 } from "react";
 import { toast } from "sonner";
 import { createEvaluation, deleteEvaluation as dbDeleteEvaluation, fetchEvaluations, updateEvaluation as dbUpdateEvaluation } from "@/lib/data/evaluations";
-import { DEFAULT_MIN_PASSING_GRADE, fetchMinPassingGrade } from "@/lib/data/profile";
+import { DEFAULT_MIN_PASSING_GRADE, fetchProfile, saveProfile } from "@/lib/data/profile";
+import {
+  createClassBlock,
+  deleteClassBlock as dbDeleteClassBlock,
+  fetchClassBlocks,
+  updateClassBlock as dbUpdateClassBlock,
+} from "@/lib/data/schedule";
+import { createTask, deleteTask as dbDeleteTask, fetchTasks, setTaskCompleted } from "@/lib/data/tasks";
 import { seedSampleData as dbSeedSampleData } from "@/lib/data/seed";
 import { createSubject, deleteSubject as dbDeleteSubject, fetchSubjects, updateSubject as dbUpdateSubject } from "@/lib/data/subjects";
-import type { EvaluationPatch, NewEvaluationData, SubjectInput } from "@/lib/data/types";
+import type { ClassBlockInput, EvaluationPatch, NewEvaluationData, ProfileData, SubjectInput } from "@/lib/data/types";
 import { MOCK_MIN_PASSING_GRADE, mockEvaluations, mockSubjects } from "@/lib/mock-data";
 import { createClient } from "@/lib/supabase/client";
-import type { Evaluation, Subject } from "@/types/database";
+import type { ClassBlock, Evaluation, Subject, Task } from "@/types/database";
 
-export type { EvaluationPatch, NewEvaluationData, SubjectInput };
+export type { ClassBlockInput, EvaluationPatch, NewEvaluationData, ProfileData, SubjectInput };
 
 interface DataContextValue {
   subjects: Subject[];
   evaluations: Evaluation[];
   minPassingGrade: number;
+  /** Nombre del perfil (profiles.full_name); null si aún no lo ha definido */
+  fullName: string | null;
+  /** Correo de la sesión (para el saludo si no hay nombre) */
+  userEmail: string | null;
+  tasks: Task[];
+  classBlocks: ClassBlock[];
+  /** Error al cargar tareas/horario (p. ej. falta ejecutar la migración 002); no bloquea el resto */
+  extrasError: string | null;
   /** true mientras se cargan los datos desde Supabase */
   loading: boolean;
   loadError: string | null;
@@ -39,6 +54,13 @@ interface DataContextValue {
   gradeEvaluation: (id: string, earnedScore: number, maxScore: number) => Promise<boolean>;
   deleteEvaluation: (id: string) => Promise<boolean>;
   seedSampleData: () => Promise<boolean>;
+  updateProfile: (data: ProfileData) => Promise<boolean>;
+  addTask: (title: string) => Promise<boolean>;
+  toggleTask: (id: string, completed: boolean) => Promise<boolean>;
+  deleteTask: (id: string) => Promise<boolean>;
+  addClassBlock: (input: ClassBlockInput) => Promise<boolean>;
+  updateClassBlock: (id: string, input: ClassBlockInput) => Promise<boolean>;
+  deleteClassBlock: (id: string) => Promise<boolean>;
 }
 
 const DataContext = createContext<DataContextValue | null>(null);
@@ -63,6 +85,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [subjects, setSubjects] = useState<Subject[]>(isDemo ? mockSubjects : []);
   const [evaluations, setEvaluations] = useState<Evaluation[]>(isDemo ? mockEvaluations : []);
   const [minPassingGrade, setMinPassingGrade] = useState(isDemo ? MOCK_MIN_PASSING_GRADE : DEFAULT_MIN_PASSING_GRADE);
+  const [fullName, setFullName] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [classBlocks, setClassBlocks] = useState<ClassBlock[]>([]);
+  const [extrasError, setExtrasError] = useState<string | null>(null);
   const [loading, setLoading] = useState(!isDemo);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -76,15 +103,27 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setLoading(true);
       setLoadError(null);
       try {
-        const [s, e, min] = await Promise.all([
+        // Tareas y horario se cargan aparte: si su tabla aún no existe, el resto sigue funcionando.
+        let extrasMsg: string | null = null;
+        const soft = <T,>(fallback: T) => (err: unknown) => {
+          extrasMsg = message(err);
+          return fallback;
+        };
+        const [s, e, profile, t, cb] = await Promise.all([
           fetchSubjects(supabase),
           fetchEvaluations(supabase),
-          fetchMinPassingGrade(supabase, userId),
+          fetchProfile(supabase, userId),
+          fetchTasks(supabase).catch(soft<Task[]>([])),
+          fetchClassBlocks(supabase).catch(soft<ClassBlock[]>([])),
         ]);
         if (seq !== loadSeq.current) return; // llegó una carga más reciente
         setSubjects(s);
         setEvaluations(e);
-        setMinPassingGrade(min);
+        setMinPassingGrade(profile.default_min_passing_grade);
+        setFullName(profile.full_name);
+        setTasks(t);
+        setClassBlocks(cb);
+        setExtrasError(extrasMsg);
       } catch (err) {
         if (seq !== loadSeq.current) return;
         setLoadError(message(err));
@@ -103,6 +142,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       const uid = session?.user?.id ?? null;
       if (uid === userIdRef.current) return; // p. ej. refresco de token
       userIdRef.current = uid;
+      setUserEmail(session?.user?.email ?? null);
       if (uid) {
         // setTimeout: no hacer llamadas a Supabase dentro del callback de auth
         setTimeout(() => void loadAll(uid), 0);
@@ -110,6 +150,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
         loadSeq.current++;
         setSubjects([]);
         setEvaluations([]);
+        setTasks([]);
+        setClassBlocks([]);
+        setFullName(null);
+        setExtrasError(null);
         setLoadError(null);
         setLoading(false);
       }
@@ -168,6 +212,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (supabase) await dbDeleteSubject(supabase, id);
         setSubjects((p) => p.filter((s) => s.id !== id));
         setEvaluations((p) => p.filter((e) => e.subject_id !== id)); // cascada
+        setClassBlocks((p) => p.filter((b) => b.subject_id !== id)); // cascada
       }),
     [supabase, run]
   );
@@ -244,11 +289,105 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [supabase, run, requireUser]
   );
 
+  const updateProfile = useCallback(
+    (data: ProfileData) =>
+      run("No se pudo guardar la configuración", async () => {
+        const saved = supabase ? await saveProfile(supabase, requireUser(), data) : data;
+        setFullName(saved.full_name);
+        setMinPassingGrade(saved.default_min_passing_grade);
+      }),
+    [supabase, run, requireUser]
+  );
+
+  const addTask = useCallback(
+    (title: string) =>
+      run("No se pudo crear la tarea", async () => {
+        const created: Task = supabase
+          ? await createTask(supabase, requireUser(), title)
+          : {
+              id: crypto.randomUUID(),
+              user_id: "demo-user",
+              title,
+              is_completed: false,
+              completed_at: null,
+              created_at: new Date().toISOString(),
+            };
+        setTasks((p) => [...p, created]);
+      }),
+    [supabase, run, requireUser]
+  );
+
+  const toggleTask = useCallback(
+    async (id: string, completed: boolean) => {
+      // Actualización optimista: el checkbox responde al instante; si falla, se revierte.
+      const stamp = (t: Task, c: boolean): Task => ({ ...t, is_completed: c, completed_at: c ? new Date().toISOString() : null });
+      setTasks((p) => p.map((t) => (t.id === id ? stamp(t, completed) : t)));
+      const ok = await run("No se pudo actualizar la tarea", async () => {
+        if (!supabase) return;
+        const updated = await setTaskCompleted(supabase, id, completed);
+        setTasks((p) => p.map((t) => (t.id === id ? updated : t)));
+      });
+      if (!ok) setTasks((p) => p.map((t) => (t.id === id ? stamp(t, !completed) : t)));
+      return ok;
+    },
+    [supabase, run]
+  );
+
+  const deleteTask = useCallback(
+    (id: string) =>
+      run("No se pudo eliminar la tarea", async () => {
+        if (supabase) await dbDeleteTask(supabase, id);
+        setTasks((p) => p.filter((t) => t.id !== id));
+      }),
+    [supabase, run]
+  );
+
+  const addClassBlock = useCallback(
+    (input: ClassBlockInput) =>
+      run("No se pudo agregar la clase", async () => {
+        const created: ClassBlock = supabase
+          ? await createClassBlock(supabase, requireUser(), input)
+          : { id: crypto.randomUUID(), user_id: "demo-user", created_at: new Date().toISOString(), ...input };
+        setClassBlocks((p) => [...p, created]);
+      }),
+    [supabase, run, requireUser]
+  );
+
+  const updateClassBlock = useCallback(
+    (id: string, input: ClassBlockInput) =>
+      run("No se pudo guardar la clase", async () => {
+        const updated = supabase ? await dbUpdateClassBlock(supabase, id, input) : null;
+        setClassBlocks((p) => p.map((b) => (b.id === id ? updated ?? { ...b, ...input } : b)));
+      }),
+    [supabase, run]
+  );
+
+  const deleteClassBlock = useCallback(
+    (id: string) =>
+      run("No se pudo eliminar la clase", async () => {
+        if (supabase) await dbDeleteClassBlock(supabase, id);
+        setClassBlocks((p) => p.filter((b) => b.id !== id));
+      }),
+    [supabase, run]
+  );
+
   const value = useMemo<DataContextValue>(
     () => ({
       subjects,
       evaluations,
       minPassingGrade,
+      fullName,
+      userEmail,
+      tasks,
+      classBlocks,
+      extrasError,
+      updateProfile,
+      addTask,
+      toggleTask,
+      deleteTask,
+      addClassBlock,
+      updateClassBlock,
+      deleteClassBlock,
       loading,
       loadError,
       isDemo,
@@ -265,6 +404,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
       subjects,
       evaluations,
       minPassingGrade,
+      fullName,
+      userEmail,
+      tasks,
+      classBlocks,
+      extrasError,
+      updateProfile,
+      addTask,
+      toggleTask,
+      deleteTask,
+      addClassBlock,
+      updateClassBlock,
+      deleteClassBlock,
       loading,
       loadError,
       isDemo,
