@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Plus } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ArrowLeft, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,6 +21,8 @@ import { useData } from "@/components/data-provider";
 import { EvaluationFormModal } from "@/components/evaluations/EvaluationFormModal";
 import { GradeEvaluationModal } from "@/components/evaluations/GradeEvaluationModal";
 import { calculateEvaluationPoints, calculateSubjectMetrics } from "@/lib/academic-math";
+import { SubjectFormModal } from "@/components/subjects/SubjectFormModal";
+import { ConfirmDialog } from "@/components/ui-extra/ConfirmDialog";
 import type { Evaluation } from "@/types/database";
 
 function formatDate(iso: string | null): string {
@@ -37,10 +40,19 @@ function sortEvaluations(list: Evaluation[]): Evaluation[] {
 }
 
 export function SubjectDetailClient({ subjectId }: { subjectId: string }) {
-  const { subjects, evaluations, minPassingGrade, addEvaluation, gradeEvaluation } = useData();
+  const {
+    subjects, evaluations, minPassingGrade, loading,
+    addEvaluation, updateEvaluation, gradeEvaluation, deleteEvaluation, updateSubject, deleteSubject,
+  } = useData();
+  const router = useRouter();
   const [formOpen, setFormOpen] = useState(false);
+  const [editingEvalId, setEditingEvalId] = useState<string | null>(null);
+  const [deletingEval, setDeletingEval] = useState<Evaluation | null>(null);
+  const [subjectFormOpen, setSubjectFormOpen] = useState(false);
+  const [deletingSubject, setDeletingSubject] = useState(false);
   const [gradingId, setGradingId] = useState<string | null>(null);
   const grading = evaluations.find((e) => e.id === gradingId) ?? null;
+  const editingEval = evaluations.find((e) => e.id === editingEvalId) ?? null;
 
   const subject = subjects.find((s) => s.id === subjectId);
   const metrics = useMemo(
@@ -51,6 +63,10 @@ export function SubjectDetailClient({ subjectId }: { subjectId: string }) {
     () => sortEvaluations(evaluations.filter((e) => e.subject_id === subjectId)),
     [evaluations, subjectId]
   );
+
+  if (loading) {
+    return <div className="mx-auto max-w-3xl p-6 text-sm text-muted-foreground">Cargando…</div>;
+  }
 
   if (!subject || !metrics) {
     return (
@@ -72,6 +88,14 @@ export function SubjectDetailClient({ subjectId }: { subjectId: string }) {
           </Link>
           <span className="size-3 rounded-full" style={{ backgroundColor: subject.color_hex }} />
           <h1 className="truncate font-semibold">{subject.name}</h1>
+          <div className="ml-auto flex gap-1">
+            <Button variant="ghost" size="icon-sm" aria-label="Editar materia" onClick={() => setSubjectFormOpen(true)}>
+              <Pencil className="size-4" />
+            </Button>
+            <Button variant="ghost" size="icon-sm" aria-label="Eliminar materia" onClick={() => setDeletingSubject(true)}>
+              <Trash2 className="size-4" />
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -121,6 +145,7 @@ export function SubjectDetailClient({ subjectId }: { subjectId: string }) {
                       <TableHead className="text-right">Peso</TableHead>
                       <TableHead className="text-right">Nota</TableHead>
                       <TableHead className="text-right">Estado</TableHead>
+                      <TableHead className="w-20"><span className="sr-only">Acciones</span></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -129,23 +154,19 @@ export function SubjectDetailClient({ subjectId }: { subjectId: string }) {
                       return (
                         <TableRow
                           key={ev.id}
-                          {...(graded
-                            ? {}
-                            : {
-                                role: "button",
-                                tabIndex: 0,
-                                "aria-label": "Calificar " + ev.title,
-                                onClick: () => setGradingId(ev.id),
-                                onKeyDown: (e: React.KeyboardEvent) => {
-                                  if (e.key === "Enter" || e.key === " ") {
-                                    e.preventDefault();
-                                    setGradingId(ev.id);
-                                  }
-                                },
-                              })}
-                          className={graded ? undefined : "cursor-pointer focus-visible:bg-muted/60 focus-visible:outline-none"}
+                          className="cursor-pointer"
+                          onClick={() => setGradingId(ev.id)}
                         >
-                          <TableCell className="font-medium">{ev.title}</TableCell>
+                          <TableCell className="font-medium">
+                            <button
+                              type="button"
+                              className="text-left outline-none hover:underline focus-visible:underline"
+                              aria-label={(graded ? "Editar nota de " : "Calificar ") + ev.title}
+                              onClick={(e) => { e.stopPropagation(); setGradingId(ev.id); }}
+                            >
+                              {ev.title}
+                            </button>
+                          </TableCell>
                           <TableCell className="whitespace-nowrap">{formatDate(ev.due_date)}</TableCell>
                           <TableCell className="text-right tabular-nums">{ev.weight_percentage}%</TableCell>
                           <TableCell className="text-right whitespace-nowrap tabular-nums">
@@ -167,9 +188,27 @@ export function SubjectDetailClient({ subjectId }: { subjectId: string }) {
                               </Badge>
                             ) : (
                               <Badge className="border-0 bg-amber-500/15 text-amber-600 dark:text-amber-400">
-                                Pendiente · Calificar
+                                Pendiente
                               </Badge>
                             )}
+                          </TableCell>
+                          <TableCell className="text-right whitespace-nowrap">
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              aria-label={"Editar " + ev.title}
+                              onClick={(e) => { e.stopPropagation(); setEditingEvalId(ev.id); }}
+                            >
+                              <Pencil className="size-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              aria-label={"Eliminar " + ev.title}
+                              onClick={(e) => { e.stopPropagation(); setDeletingEval(ev); }}
+                            >
+                              <Trash2 className="size-4" />
+                            </Button>
                           </TableCell>
                         </TableRow>
                       );
@@ -185,10 +224,12 @@ export function SubjectDetailClient({ subjectId }: { subjectId: string }) {
       <GradeEvaluationModal
         evaluation={grading}
         onClose={() => setGradingId(null)}
-        onSubmit={(id, earned, max) => {
-          gradeEvaluation(id, earned, max);
-          setGradingId(null);
-          toast.success("Nota guardada");
+        onSubmit={async (id, earned, max) => {
+          const ok = await gradeEvaluation(id, earned, max);
+          if (ok) {
+            setGradingId(null);
+            toast.success("Nota guardada");
+          }
         }}
       />
 
@@ -199,10 +240,76 @@ export function SubjectDetailClient({ subjectId }: { subjectId: string }) {
         defaultSubjectId={subjectId}
         lockSubject
         onOpenChange={setFormOpen}
-        onSubmit={(input) => {
-          addEvaluation(input);
-          setFormOpen(false);
-          toast.success("Evaluación agregada");
+        onSubmit={async (input) => {
+          const ok = await addEvaluation(input);
+          if (ok) {
+            setFormOpen(false);
+            toast.success("Evaluación agregada");
+          }
+        }}
+      />
+
+      <EvaluationFormModal
+        open={editingEval !== null}
+        subjects={subjects}
+        evaluations={evaluations}
+        evaluation={editingEval}
+        defaultSubjectId={subjectId}
+        lockSubject
+        onOpenChange={(open) => !open && setEditingEvalId(null)}
+        onSubmit={async (input) => {
+          if (!editingEval) return;
+          const ok = await updateEvaluation(editingEval.id, {
+            title: input.title,
+            due_date: input.due_date,
+            weight_percentage: input.weight_percentage,
+          });
+          if (ok) {
+            setEditingEvalId(null);
+            toast.success("Evaluación actualizada");
+          }
+        }}
+      />
+
+      <ConfirmDialog
+        open={deletingEval !== null}
+        title={`¿Eliminar ${deletingEval?.title ?? "la evaluación"}?`}
+        description="Esta acción no se puede deshacer."
+        onCancel={() => setDeletingEval(null)}
+        onConfirm={async () => {
+          if (!deletingEval) return;
+          const ok = await deleteEvaluation(deletingEval.id);
+          if (ok) toast.success("Evaluación eliminada");
+          setDeletingEval(null);
+        }}
+      />
+
+      <SubjectFormModal
+        open={subjectFormOpen}
+        subject={subject}
+        globalMinPassingGrade={minPassingGrade}
+        onOpenChange={setSubjectFormOpen}
+        onSubmit={async (input) => {
+          const ok = await updateSubject(subject.id, input);
+          if (ok) {
+            setSubjectFormOpen(false);
+            toast.success("Materia actualizada");
+          }
+        }}
+      />
+
+      <ConfirmDialog
+        open={deletingSubject}
+        title={`¿Eliminar ${subject.name}?`}
+        description="Se eliminarán también todas sus evaluaciones. Esta acción no se puede deshacer."
+        onCancel={() => setDeletingSubject(false)}
+        onConfirm={async () => {
+          const ok = await deleteSubject(subject.id);
+          setDeletingSubject(false);
+          if (ok) {
+            toast.success("Materia eliminada");
+            router.push("/");
+          }
         }}
       />
     </div>

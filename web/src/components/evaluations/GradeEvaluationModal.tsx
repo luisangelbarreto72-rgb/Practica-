@@ -15,10 +15,12 @@ import { Label } from "@/components/ui/label";
 import { calculateEvaluationPoints } from "@/lib/academic-math";
 import type { Evaluation } from "@/types/database";
 
+type SubmitFn = (id: string, earnedScore: number, maxScore: number) => void | Promise<void>;
+
 interface GradeEvaluationModalProps {
   evaluation: Evaluation | null;
   onClose: () => void;
-  onSubmit: (id: string, earnedScore: number, maxScore: number) => void;
+  onSubmit: SubmitFn;
 }
 
 export function GradeEvaluationModal({ evaluation, onClose, onSubmit }: GradeEvaluationModalProps) {
@@ -41,11 +43,13 @@ function GradeForm({
 }: {
   evaluation: Evaluation;
   onCancel: () => void;
-  onSubmit: (id: string, earnedScore: number, maxScore: number) => void;
+  onSubmit: SubmitFn;
 }) {
-  const [earned, setEarned] = useState("");
+  const alreadyGraded = evaluation.status === "graded" && evaluation.earned_score !== null;
+  const [earned, setEarned] = useState(alreadyGraded ? String(evaluation.earned_score) : "");
   const [max, setMax] = useState(String(evaluation.max_score));
   const [submitted, setSubmitted] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const e = parseFloat(earned);
   const m = parseFloat(max);
@@ -68,15 +72,22 @@ function GradeForm({
     <form
       noValidate
       className="flex flex-col gap-4"
-      onSubmit={(ev) => {
+      onSubmit={async (ev) => {
         ev.preventDefault();
         setSubmitted(true);
         if (hasErrors) return;
-        onSubmit(evaluation.id, e, m);
+        setSaving(true);
+        try {
+          await onSubmit(evaluation.id, e, m);
+        } finally {
+          setSaving(false);
+        }
       }}
     >
       <DialogHeader>
-        <DialogTitle>Calificar: {evaluation.title}</DialogTitle>
+        <DialogTitle>
+          {alreadyGraded ? "Editar nota" : "Calificar"}: {evaluation.title}
+        </DialogTitle>
         <DialogDescription>
           Peso de esta evaluación: {evaluation.weight_percentage}% de la nota final.
         </DialogDescription>
@@ -131,10 +142,12 @@ function GradeForm({
       )}
 
       <DialogFooter>
-        <Button type="button" variant="outline" onClick={onCancel}>
+        <Button type="button" variant="outline" onClick={onCancel} disabled={saving}>
           Cancelar
         </Button>
-        <Button type="submit">Guardar nota</Button>
+        <Button type="submit" disabled={saving}>
+          {saving ? "Guardando…" : "Guardar nota"}
+        </Button>
       </DialogFooter>
     </form>
   );

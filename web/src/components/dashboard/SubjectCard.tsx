@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FlaskConical } from "lucide-react";
+import { FlaskConical, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -10,9 +10,11 @@ import type { SubjectMetrics } from "@/lib/academic-math";
 interface SubjectCardProps {
   metrics: SubjectMetrics;
   onSimulate: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
 }
 
-export function SubjectCard({ metrics, onSimulate }: SubjectCardProps) {
+export function SubjectCard({ metrics, onSimulate, onEdit, onDelete }: SubjectCardProps) {
   const { subject, earnedPoints, minPassingGrade, pointsNeededToPass, isPassing } = metrics;
 
   return (
@@ -28,6 +30,20 @@ export function SubjectCard({ metrics, onSimulate }: SubjectCardProps) {
             {subject.name}
           </Link>
         </CardTitle>
+        {(onEdit || onDelete) && (
+          <div className="relative z-10 col-start-2 row-span-2 row-start-1 flex gap-1 self-start justify-self-end">
+            {onEdit && (
+              <Button variant="ghost" size="icon-sm" aria-label={`Editar ${subject.name}`} onClick={onEdit}>
+                <Pencil className="size-4" />
+              </Button>
+            )}
+            {onDelete && (
+              <Button variant="ghost" size="icon-sm" aria-label={`Eliminar ${subject.name}`} onClick={onDelete}>
+                <Trash2 className="size-4" />
+              </Button>
+            )}
+          </div>
+        )}
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         <p className="text-3xl font-bold tabular-nums">

@@ -12,8 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { NewEvaluationData } from "@/components/data-provider";
-import { cn } from "@/lib/utils";
+import type { NewEvaluationData } from "@/lib/data/types";
 import type { Evaluation, Subject } from "@/types/database";
 
 export type NewEvaluationInput = NewEvaluationData;
@@ -26,11 +25,13 @@ interface EvaluationFormModalProps {
   subjects: Subject[];
   /** Evaluaciones existentes: se usan para avisar si el peso total supera 100%. */
   evaluations: Evaluation[];
+  /** Si se pasa, el formulario edita esa evaluación (título, fecha y peso). */
+  evaluation?: Evaluation | null;
   /** Materia preseleccionada (y bloqueada si `lockSubject`). */
   defaultSubjectId?: string;
   lockSubject?: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (input: NewEvaluationInput) => void;
+  onSubmit: (input: NewEvaluationInput) => void | Promise<void>;
 }
 
 export function EvaluationFormModal({ open, onOpenChange, ...rest }: EvaluationFormModalProps) {
@@ -56,21 +57,27 @@ function FieldError({ id, message }: { id: string; message?: string }) {
 function Form({
   subjects,
   evaluations,
+  evaluation,
   defaultSubjectId,
   lockSubject,
   onCancel,
   onSubmit,
 }: Omit<EvaluationFormModalProps, "open" | "onOpenChange"> & { onCancel: () => void }) {
-  const [subjectId, setSubjectId] = useState(defaultSubjectId ?? subjects[0]?.id ?? "");
-  const [title, setTitle] = useState("");
-  const [dueDate, setDueDate] = useState("");
-  const [weight, setWeight] = useState("");
+  const editing = Boolean(evaluation);
+  // Una evaluación ya calificada puede no tener fecha; las pendientes sí la necesitan.
+  const dateRequired = !evaluation || evaluation.status === "pending";
+
+  const [subjectId, setSubjectId] = useState(evaluation?.subject_id ?? defaultSubjectId ?? subjects[0]?.id ?? "");
+  const [title, setTitle] = useState(evaluation?.title ?? "");
+  const [dueDate, setDueDate] = useState(evaluation?.due_date ?? "");
+  const [weight, setWeight] = useState(evaluation ? String(evaluation.weight_percentage) : "");
   const [submitted, setSubmitted] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const w = parseFloat(weight);
   const errors = {
     title: title.trim() ? undefined : "Escribe un título para la evaluación.",
-    dueDate: dueDate ? undefined : "Elige una fecha.",
+    dueDate: !dateRequired || dueDate ? undefined : "Elige una fecha.",
     weight:
       weight.trim() === ""
         ? "Indica el peso sobre la nota final."
@@ -81,8 +88,9 @@ function Form({
   const hasErrors = Boolean(errors.title || errors.dueDate || errors.weight);
   const show = (field: keyof typeof errors) => (submitted ? errors[field] : undefined);
 
+  // Peso ya usado por las demás evaluaciones de la materia (sin contar la que se edita)
   const currentWeight = evaluations
-    .filter((e) => e.subject_id === subjectId)
+    .filter((e) => e.subject_id === subjectId && e.id !== evaluation?.id)
     .reduce((sum, e) => sum + e.weight_percentage, 0);
   const overweight = w > 0 && currentWeight + w > 100;
 
@@ -94,16 +102,28 @@ function Form({
     <form
       noValidate
       className="flex flex-col gap-4"
-      onSubmit={(e) => {
+      onSubmit={async (e) => {
         e.preventDefault();
         setSubmitted(true);
         if (hasErrors || !subjectId) return;
-        onSubmit({ subject_id: subjectId, title: title.trim(), due_date: dueDate, weight_percentage: w });
+        setSaving(true);
+        try {
+          await onSubmit({
+            subject_id: subjectId,
+            title: title.trim(),
+            due_date: dueDate || null,
+            weight_percentage: w,
+          });
+        } finally {
+          setSaving(false);
+        }
       }}
     >
       <DialogHeader>
-        <DialogTitle>Agregar nueva evaluación</DialogTitle>
-        <DialogDescription>Registra una evaluación pendiente para tu calendario.</DialogDescription>
+        <DialogTitle>{editing ? "Editar evaluación" : "Agregar nueva evaluación"}</DialogTitle>
+        <DialogDescription>
+          {editing ? "Cambia el título, la fecha o el peso." : "Registra una evaluación pendiente para tu calendario."}
+        </DialogDescription>
       </DialogHeader>
 
       <div className="flex flex-col gap-1.5">
@@ -112,7 +132,7 @@ function Form({
           id="eval-subject"
           className={selectClass}
           value={subjectId}
-          disabled={lockSubject}
+          disabled={lockSubject || editing}
           onChange={(e) => setSubjectId(e.target.value)}
         >
           {subjects.map((s) => (
@@ -160,6 +180,7 @@ function Form({
             inputMode="decimal"
             min={1}
             max={100}
+            step="any"
             value={weight}
             onChange={(e) => setWeight(e.target.value)}
             aria-invalid={Boolean(show("weight"))}
@@ -171,16 +192,18 @@ function Form({
       </div>
 
       {overweight && (
-        <p className={cn("rounded-md bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400")}>
-          Ojo: esta materia ya suma {currentWeight}% en evaluaciones; con esta pasaría de 100%.
+        <p className="rounded-md bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+          Ojo: las demás evaluaciones de esta materia ya suman {currentWeight}%; con esta pasaría de 100%.
         </p>
       )}
 
       <DialogFooter>
-        <Button type="button" variant="outline" onClick={onCancel}>
+        <Button type="button" variant="outline" onClick={onCancel} disabled={saving}>
           Cancelar
         </Button>
-        <Button type="submit">Guardar</Button>
+        <Button type="submit" disabled={saving}>
+          {saving ? "Guardando…" : "Guardar"}
+        </Button>
       </DialogFooter>
     </form>
   );

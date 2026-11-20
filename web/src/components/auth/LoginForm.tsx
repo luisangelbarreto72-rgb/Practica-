@@ -36,16 +36,6 @@ function friendlyError(error: { code?: string; message: string; status?: number 
   }
 }
 
-/**
- * TEMPORAL (depuración): añade el código y el mensaje técnico reales de Supabase
- * al mensaje amigable. Quitar cuando el registro funcione en producción.
- */
-function describeError(error: { code?: string; message: string; status?: number }): string {
-  const code = error.code ?? (error.status !== undefined ? `status ${error.status}` : null);
-  const detail = [code, error.message].filter(Boolean).join(" — ");
-  return `${friendlyError(error)} [Detalle técnico: ${detail}]`;
-}
-
 const supabaseConfigured = Boolean(
   process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 );
@@ -96,7 +86,7 @@ export function LoginForm() {
       if (mode === "login") {
         const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
         if (error) {
-          setFormError(describeError(error));
+          setFormError(friendlyError(error));
           return;
         }
         router.replace("/");
@@ -111,7 +101,7 @@ export function LoginForm() {
           },
         });
         if (error) {
-          setFormError(describeError(error));
+          setFormError(friendlyError(error));
           return;
         }
         if (data.session) {
@@ -125,9 +115,8 @@ export function LoginForm() {
         }
       }
     } catch (err) {
-      // TEMPORAL (depuración): mostrar el error real
-      const detail = err instanceof Error ? err.message : String(err);
-      setFormError(`No se pudo conectar con el servidor. Revisa tu conexión. [Detalle técnico: ${detail}]`);
+      console.error(err);
+      setFormError("No se pudo conectar con el servidor. Revisa tu conexión.");
     } finally {
       setLoading(false);
     }
