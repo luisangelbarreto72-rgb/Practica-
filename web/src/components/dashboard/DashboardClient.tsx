@@ -9,8 +9,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { SignOutButton } from "@/components/auth/SignOutButton";
 import { OverallAverageCard } from "@/components/dashboard/OverallAverageCard";
 import { UpcomingEvaluationsWidget } from "@/components/dashboard/UpcomingEvaluationsWidget";
-import { GradeSimulatorDrawer } from "@/components/simulator/GradeSimulatorDrawer";
 import { SubjectCard } from "@/components/dashboard/SubjectCard";
+import { SubjectDetailDrawer, type SubjectDrawerTab } from "@/components/subjects/SubjectDetailDrawer";
 import { calculateOverallAverage, calculateSubjectMetrics, getUpcomingEvaluations, type SubjectMetrics } from "@/lib/academic-math";
 import { useData } from "@/components/data-provider";
 import { EvaluationFormModal } from "@/components/evaluations/EvaluationFormModal";
@@ -27,7 +27,7 @@ export function DashboardClient() {
   const {
     subjects, evaluations, minPassingGrade, loading, loadError,
     fullName, userEmail, tasks, extrasError, updateProfile, addTask, toggleTask, deleteTask,
-    addSubject, updateSubject, deleteSubject, addEvaluation, gradeEvaluation, seedSampleData,
+    addSubject, updateSubject, updateSubjectAbsences, deleteSubject, addEvaluation, gradeEvaluation, seedSampleData,
   } = useData();
   const { resolvedTheme, setTheme } = useTheme();
 
@@ -37,8 +37,10 @@ export function DashboardClient() {
   );
   const average = calculateOverallAverage(metrics);
   const upcoming = useMemo(() => getUpcomingEvaluations(evaluations, subjects), [evaluations, subjects]);
-  const [simulatingId, setSimulatingId] = useState<string | null>(null);
-  const simulating: SubjectMetrics | null = metrics.find((m) => m.subject.id === simulatingId) ?? null;
+  const [detailDrawer, setDetailDrawer] = useState<{ subjectId: string; tab: SubjectDrawerTab } | null>(null);
+  const activeDetail: SubjectMetrics | null = detailDrawer
+    ? metrics.find((m) => m.subject.id === detailDrawer.subjectId) ?? null
+    : null;
   const [subjectModal, setSubjectModal] = useState<{ open: boolean; subject: Subject | null }>({ open: false, subject: null });
   const [deleting, setDeleting] = useState<Subject | null>(null);
   const [gradingId, setGradingId] = useState<string | null>(null);
@@ -169,7 +171,9 @@ export function DashboardClient() {
                   <SubjectCard
                     key={m.subject.id}
                     metrics={m}
-                    onSimulate={() => setSimulatingId(m.subject.id)}
+                    onOpenDetail={() => setDetailDrawer({ subjectId: m.subject.id, tab: "evaluaciones" })}
+                    onSimulate={() => setDetailDrawer({ subjectId: m.subject.id, tab: "simulador" })}
+                    onUpdateAbsences={(next) => void updateSubjectAbsences(m.subject.id, next)}
                     evaluationCount={evalCounts.get(m.subject.id) ?? 0}
                     onEdit={() => setSubjectModal({ open: true, subject: m.subject })}
                     onDelete={() => setDeleting(m.subject)}
@@ -210,7 +214,12 @@ export function DashboardClient() {
         }}
       />
 
-      <GradeSimulatorDrawer metrics={simulating} onClose={() => setSimulatingId(null)} />
+      <SubjectDetailDrawer
+        metrics={activeDetail}
+        initialTab={detailDrawer?.tab ?? "evaluaciones"}
+        onClose={() => setDetailDrawer(null)}
+        onEditSubject={(subject) => setSubjectModal({ open: true, subject })}
+      />
 
       <SubjectFormModal
         open={subjectModal.open}

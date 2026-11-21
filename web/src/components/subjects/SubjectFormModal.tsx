@@ -47,6 +47,15 @@ export function SubjectFormModal({ open, onOpenChange, ...rest }: SubjectFormMod
   );
 }
 
+function isValidHttpUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 function Form({
   subject,
   globalMinPassingGrade,
@@ -61,16 +70,29 @@ function Form({
       ? String(subject.min_passing_grade)
       : ""
   );
+  const [maxAbsences, setMaxAbsences] = useState(String(subject?.max_absences ?? 4));
+  const [professor, setProfessor] = useState(subject?.professor ?? "");
+  const [resourceUrl, setResourceUrl] = useState(subject?.resource_url ?? "");
   const [submitted, setSubmitted] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const g = parseFloat(minGrade);
+  const maxAbs = parseInt(maxAbsences, 10);
+  const trimmedUrl = resourceUrl.trim();
   const errors = {
     name: !name.trim() ? "Escribe el nombre de la materia." : name.trim().length > 60 ? "Máximo 60 caracteres." : undefined,
     minGrade:
       minGrade.trim() !== "" && !(g > 0 && g <= 100) ? "La nota mínima debe estar entre 1 y 100." : undefined,
+    maxAbsences:
+      !Number.isInteger(maxAbs) || maxAbs < 1 || maxAbs > 99
+        ? "Debe ser un número entero entre 1 y 99."
+        : undefined,
+    resourceUrl:
+      trimmedUrl !== "" && !isValidHttpUrl(trimmedUrl)
+        ? "Ingresa una URL válida que empiece por http:// o https://."
+        : undefined,
   };
-  const hasErrors = Boolean(errors.name || errors.minGrade);
+  const hasErrors = Boolean(errors.name || errors.minGrade || errors.maxAbsences || errors.resourceUrl);
   const invalid = "border-red-500 focus-visible:border-red-500 focus-visible:ring-red-500/30";
 
   return (
@@ -87,6 +109,9 @@ function Form({
             name: name.trim(),
             color_hex: color,
             min_passing_grade: minGrade.trim() === "" ? null : g,
+            max_absences: maxAbs,
+            professor: professor.trim() === "" ? null : professor.trim(),
+            resource_url: trimmedUrl === "" ? null : trimmedUrl,
           });
         } finally {
           setSaving(false);
@@ -96,7 +121,9 @@ function Form({
       <DialogHeader>
         <DialogTitle>{editing ? "Editar materia" : "Agregar materia"}</DialogTitle>
         <DialogDescription>
-          {editing ? "Cambia el nombre, el color o la nota mínima." : "Crea una materia para registrar sus evaluaciones."}
+          {editing
+            ? "Actualiza los datos, el límite de faltas, el profesor o la carpeta de estudio."
+            : "Crea una materia para registrar sus evaluaciones e inasistencias."}
         </DialogDescription>
       </DialogHeader>
 
@@ -139,24 +166,76 @@ function Form({
         </div>
       </div>
 
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="subject-min">Nota mínima (opcional)</Label>
+          <Input
+            id="subject-min"
+            type="number"
+            inputMode="decimal"
+            min={1}
+            max={100}
+            step="any"
+            value={minGrade}
+            onChange={(e) => setMinGrade(e.target.value)}
+            placeholder={`Global (${globalMinPassingGrade})`}
+            aria-invalid={submitted && Boolean(errors.minGrade)}
+            className={submitted && errors.minGrade ? invalid : ""}
+          />
+          {submitted && errors.minGrade && (
+            <p role="alert" className="text-xs text-red-600 dark:text-red-400">
+              {errors.minGrade}
+            </p>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="subject-max-absences">Máx. inasistencias</Label>
+          <Input
+            id="subject-max-absences"
+            type="number"
+            inputMode="numeric"
+            min={1}
+            max={99}
+            step={1}
+            value={maxAbsences}
+            onChange={(e) => setMaxAbsences(e.target.value)}
+            aria-invalid={submitted && Boolean(errors.maxAbsences)}
+            className={submitted && errors.maxAbsences ? invalid : ""}
+          />
+          {submitted && errors.maxAbsences && (
+            <p role="alert" className="text-xs text-red-600 dark:text-red-400">
+              {errors.maxAbsences}
+            </p>
+          )}
+        </div>
+      </div>
+
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="subject-min">Nota mínima para aprobar (opcional)</Label>
+        <Label htmlFor="subject-professor">Profesor (opcional)</Label>
         <Input
-          id="subject-min"
-          type="number"
-          inputMode="decimal"
-          min={1}
-          max={100}
-          step="any"
-          value={minGrade}
-          onChange={(e) => setMinGrade(e.target.value)}
-          placeholder={`Vacío = nota global (${globalMinPassingGrade})`}
-          aria-invalid={submitted && Boolean(errors.minGrade)}
-          className={submitted && errors.minGrade ? invalid : ""}
+          id="subject-professor"
+          value={professor}
+          onChange={(e) => setProfessor(e.target.value)}
+          placeholder="Ej: Dra. María González"
+          maxLength={80}
         />
-        {submitted && errors.minGrade && (
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="subject-resource-url">Carpeta de estudio / Enlace (opcional)</Label>
+        <Input
+          id="subject-resource-url"
+          type="url"
+          value={resourceUrl}
+          onChange={(e) => setResourceUrl(e.target.value)}
+          placeholder="https://drive.google.com/..."
+          aria-invalid={submitted && Boolean(errors.resourceUrl)}
+          className={submitted && errors.resourceUrl ? invalid : ""}
+        />
+        {submitted && errors.resourceUrl && (
           <p role="alert" className="text-xs text-red-600 dark:text-red-400">
-            {errors.minGrade}
+            {errors.resourceUrl}
           </p>
         )}
       </div>
