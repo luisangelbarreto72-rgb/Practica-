@@ -1,13 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Calendar, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useData } from "@/components/data-provider";
 import { ConfirmDialog } from "@/components/ui-extra/ConfirmDialog";
 import { ClassBlockModal, DAYS } from "@/components/schedule/ClassBlockModal";
+import { cn } from "@/lib/utils";
 import type { ClassBlock } from "@/types/database";
 
 export function WeeklySchedule() {
@@ -17,6 +18,7 @@ export function WeeklySchedule() {
     block: null,
   });
   const [deleting, setDeleting] = useState<ClassBlock | null>(null);
+  const [showSunday, setShowSunday] = useState(false);
 
   const subjectById = useMemo(() => new Map(subjects.map((s) => [s.id, s])), [subjects]);
   const byDay = useMemo(
@@ -27,10 +29,12 @@ export function WeeklySchedule() {
     [classBlocks]
   );
   const todayIdx = (new Date().getDay() + 6) % 7; // lunes = 0
+  const sundayCount = byDay[6]?.length ?? 0;
+  const visibleDays = showSunday ? DAYS : DAYS.slice(0, 6);
 
   if (subjects.length === 0) {
     return (
-      <Card>
+      <Card className="border border-border/80 shadow-sm ring-0">
         <CardContent className="py-12 text-center text-sm text-muted-foreground">
           Agrega primero una materia para poder armar tu horario.
         </CardContent>
@@ -39,16 +43,38 @@ export function WeeklySchedule() {
   }
 
   return (
-    <section className="space-y-3">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Horario semanal</h2>
-        <Button size="sm" onClick={() => setModal({ open: true, block: null })}>
-          <Plus className="size-4" /> Agregar clase
-        </Button>
+    <section className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 className="font-heading text-lg font-semibold tracking-tight">Horario semanal</h2>
+          <p className="text-xs text-muted-foreground">
+            {showSunday ? "Lunes a domingo" : "Lunes a sábado"}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8 gap-1.5 text-xs"
+            aria-pressed={showSunday}
+            onClick={() => setShowSunday((v) => !v)}
+          >
+            <Calendar className="size-3.5 text-muted-foreground" />
+            {showSunday
+              ? "Ocultar domingo"
+              : sundayCount > 0
+                ? `Mostrar domingo (${sundayCount})`
+                : "Mostrar domingo"}
+          </Button>
+          <Button size="sm" className="h-8 gap-1.5 text-xs" onClick={() => setModal({ open: true, block: null })}>
+            <Plus className="size-3.5" /> Agregar clase
+          </Button>
+        </div>
       </div>
 
       {extrasError && (
-        <p role="status" className="rounded-md bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+        <p role="status" className="rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
           No se pudo cargar el horario ({extrasError}). Ejecuta la migración{" "}
           <code>supabase/migrations/002_tasks_and_schedule.sql</code> en Supabase.
         </p>
@@ -58,67 +84,98 @@ export function WeeklySchedule() {
         <p className="text-sm text-muted-foreground">Aún no has registrado clases. Pulsa «Agregar clase».</p>
       )}
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-4 lg:grid-cols-7">
-        {DAYS.map((day, i) => (
-          <Card key={day} className={i === todayIdx ? "ring-2 ring-primary/40" : undefined} size="sm">
-            <CardContent className="flex min-h-24 flex-col gap-2">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold">
-                  {day}
-                  {i === todayIdx && <span className="ml-1 text-xs font-normal text-muted-foreground">· hoy</span>}
-                </h3>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={`Agregar clase el ${day}`}
-                  onClick={() => setModal({ open: true, block: null, day: i + 1 })}
-                >
-                  <Plus className="size-3.5" />
-                </Button>
-              </div>
-              {byDay[i].length === 0 ? (
-                <p className="text-xs text-muted-foreground">Sin clases</p>
-              ) : (
-                <ul className="flex flex-col gap-2">
-                  {byDay[i].map((b) => {
-                    const subject = subjectById.get(b.subject_id);
-                    return (
-                      <li
-                        key={b.id}
-                        className="rounded-md border-l-4 bg-muted/50 px-2 py-1.5 text-xs"
-                        style={{ borderLeftColor: subject?.color_hex ?? "#888" }}
-                      >
-                        <p className="font-medium">{subject?.name ?? "Materia"}</p>
-                        <p className="tabular-nums text-muted-foreground">
-                          {b.start_time}–{b.end_time}
-                          {b.room ? ` · ${b.room}` : ""}
-                        </p>
-                        <div className="mt-1 flex gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon-xs"
-                            aria-label={`Editar clase de ${subject?.name ?? "materia"} el ${day}`}
-                            onClick={() => setModal({ open: true, block: b })}
-                          >
-                            <Pencil className="size-3" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon-xs"
-                            aria-label={`Eliminar clase de ${subject?.name ?? "materia"} el ${day}`}
-                            onClick={() => setDeleting(b)}
-                          >
-                            <Trash2 className="size-3" />
-                          </Button>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
+      <div
+        className={cn(
+          "grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3",
+          showSunday ? "lg:grid-cols-7" : "lg:grid-cols-6"
+        )}
+      >
+        {visibleDays.map((day, i) => {
+          const isToday = i === todayIdx;
+          return (
+            <Card
+              key={day}
+              size="sm"
+              className={cn(
+                "border shadow-sm ring-0 transition-colors",
+                isToday ? "border-foreground/25 bg-card" : "border-border/80 bg-card/80"
               )}
-            </CardContent>
-          </Card>
-        ))}
+            >
+              <CardContent className="flex min-h-32 flex-col gap-2.5">
+                <div className="flex items-center justify-between border-b border-border/60 pb-2">
+                  <div className="flex items-center gap-1.5">
+                    <h3 className="font-heading text-xs font-semibold tracking-tight text-foreground">{day}</h3>
+                    {isToday && (
+                      <span className="rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-medium leading-none text-primary-foreground">
+                        Hoy
+                      </span>
+                    )}
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    className="text-muted-foreground hover:text-foreground"
+                    aria-label={`Agregar clase el ${day}`}
+                    onClick={() => setModal({ open: true, block: null, day: i + 1 })}
+                  >
+                    <Plus className="size-3.5" />
+                  </Button>
+                </div>
+                {byDay[i].length === 0 ? (
+                  <p className="py-4 text-center text-xs text-muted-foreground/70">Sin clases</p>
+                ) : (
+                  <ul className="flex flex-col gap-2">
+                    {byDay[i].map((b) => {
+                      const subject = subjectById.get(b.subject_id);
+                      const color = subject?.color_hex ?? "#64748b";
+                      return (
+                        <li
+                          key={b.id}
+                          className="group/block relative rounded-lg border border-l-[3px] px-2.5 py-2 text-xs transition-all duration-150 hover:shadow-xs"
+                          style={{
+                            borderColor: `color-mix(in srgb, ${color} 22%, transparent)`,
+                            borderLeftColor: color,
+                            backgroundColor: `color-mix(in srgb, ${color} 10%, var(--card))`,
+                          }}
+                        >
+                          <div className="pr-1">
+                            <p className="truncate font-medium text-foreground">{subject?.name ?? "Materia"}</p>
+                            <p className="mt-0.5 tabular-nums text-[11px] text-muted-foreground">
+                              {b.start_time}–{b.end_time}
+                            </p>
+                            {b.room && (
+                              <p className="mt-0.5 truncate text-[11px] text-muted-foreground/90">{b.room}</p>
+                            )}
+                          </div>
+                          <div className="pointer-events-none absolute top-1.5 right-1.5 flex items-center gap-0.5 rounded-md bg-background/90 p-0.5 opacity-0 shadow-xs backdrop-blur-xs transition-opacity group-hover/block:pointer-events-auto group-hover/block:opacity-100 focus-within:pointer-events-auto focus-within:opacity-100">
+                            <Button
+                              variant="ghost"
+                              size="icon-xs"
+                              className="size-5 text-muted-foreground hover:text-foreground"
+                              aria-label={`Editar clase de ${subject?.name ?? "materia"} el ${day}`}
+                              onClick={() => setModal({ open: true, block: b })}
+                            >
+                              <Pencil className="size-3" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon-xs"
+                              className="size-5 text-muted-foreground hover:text-destructive"
+                              aria-label={`Eliminar clase de ${subject?.name ?? "materia"} el ${day}`}
+                              onClick={() => setDeleting(b)}
+                            >
+                              <Trash2 className="size-3" />
+                            </Button>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
 
       <ClassBlockModal

@@ -115,17 +115,18 @@ export function calculateSubjectMetrics(
 }
 
 /**
- * Equivalente a calcular_promedio_general() en core.py.
- * Retorna el promedio general redondeado a 2 decimales.
+ * Calcula el promedio actual redondeado a 2 decimales considerando únicamente
+ * las materias que ya tienen al menos un porcentaje (> 0%) evaluado.
  */
 export function calculateOverallAverage(
-  subjectsMetrics: Pick<SubjectMetrics, "earnedPoints">[]
+  subjectsMetrics: Pick<SubjectMetrics, "earnedPoints" | "evaluatedWeight">[]
 ): number {
-  if (subjectsMetrics.length === 0) {
+  const evaluated = subjectsMetrics.filter((m) => m.evaluatedWeight > 0);
+  if (evaluated.length === 0) {
     return 0;
   }
-  const total = subjectsMetrics.reduce((sum, m) => sum + m.earnedPoints, 0);
-  return round2(total / subjectsMetrics.length);
+  const total = evaluated.reduce((sum, m) => sum + m.earnedPoints, 0);
+  return round2(total / evaluated.length);
 }
 
 /**

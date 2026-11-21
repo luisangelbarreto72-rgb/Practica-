@@ -1,13 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { GraduationCap, Moon, Plus, Settings, Sparkles, Sun } from "lucide-react";
+import { CalendarDays, GraduationCap, LayoutGrid, Moon, Plus, Settings, Sparkles, Sun } from "lucide-react";
 import { toast } from "sonner";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { SignOutButton } from "@/components/auth/SignOutButton";
-import { OverallAverageCard } from "@/components/dashboard/OverallAverageCard";
+import { DashboardKpiGrid } from "@/components/dashboard/DashboardKpiGrid";
 import { UpcomingEvaluationsWidget } from "@/components/dashboard/UpcomingEvaluationsWidget";
 import { GradeSimulatorDrawer } from "@/components/simulator/GradeSimulatorDrawer";
 import { SubjectCard } from "@/components/dashboard/SubjectCard";
@@ -26,7 +26,7 @@ import type { Subject } from "@/types/database";
 export function DashboardClient() {
   const {
     subjects, evaluations, minPassingGrade, loading, loadError,
-    fullName, userEmail, tasks, extrasError, updateProfile, addTask, toggleTask, deleteTask,
+    fullName, userEmail, tasks, classBlocks, extrasError, updateProfile, addTask, toggleTask, deleteTask,
     addSubject, updateSubject, deleteSubject, addEvaluation, gradeEvaluation, seedSampleData,
   } = useData();
   const { resolvedTheme, setTheme } = useTheme();
@@ -35,8 +35,13 @@ export function DashboardClient() {
     () => subjects.map((s) => calculateSubjectMetrics(s, evaluations, minPassingGrade)),
     [subjects, evaluations, minPassingGrade]
   );
-  const average = calculateOverallAverage(metrics);
+  const average = useMemo(() => calculateOverallAverage(metrics), [metrics]);
+  const evaluatedSubjectsCount = useMemo(
+    () => metrics.filter((m) => m.evaluatedWeight > 0).length,
+    [metrics]
+  );
   const upcoming = useMemo(() => getUpcomingEvaluations(evaluations, subjects), [evaluations, subjects]);
+  const [activeTab, setActiveTab] = useState<string>("resumen");
   const [simulatingId, setSimulatingId] = useState<string | null>(null);
   const simulating: SubjectMetrics | null = metrics.find((m) => m.subject.id === simulatingId) ?? null;
   const [subjectModal, setSubjectModal] = useState<{ open: boolean; subject: Subject | null }>({ open: false, subject: null });
@@ -51,32 +56,73 @@ export function DashboardClient() {
     for (const e of evaluations) m.set(e.subject_id, (m.get(e.subject_id) ?? 0) + 1);
     return m;
   }, [evaluations]);
-  const displayName = fullName ?? (userEmail ? userEmail.split("@")[0] : null);
+  const displayName = fullName?.trim() || (userEmail ? userEmail.split("@")[0] : null);
   const today = new Date().toLocaleDateString("es", { weekday: "long", day: "numeric", month: "long" });
   const isEmpty = !loading && subjects.length === 0;
   const passingCount = metrics.filter((m) => m.isPassing).length;
 
   return (
-    <div className="min-h-screen bg-muted/30">
-      {/* z-40 + fondo sólido: el contenido (incluidos los elementos con z-10 de las tarjetas) pasa por debajo */}
-      <header className="sticky top-0 z-40 border-b bg-background shadow-xs">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4">
-          <div className="flex min-w-0 items-center gap-3">
-            <GraduationCap className="size-5 shrink-0" />
-            <div className="min-w-0 leading-tight">
-              <p className="truncate font-semibold">
-                {displayName ? `Hola, ${displayName}` : "Gestor Académico"}
-              </p>
-              <p className="truncate text-xs text-muted-foreground first-letter:uppercase">{today}</p>
+    <Tabs value={activeTab} onValueChange={(v) => setActiveTab(String(v))} className="min-h-screen gap-0 bg-background">
+      {/* Barra superior limpia con saludo capitalizado y pestañas integradas */}
+      <header className="sticky top-0 z-40 border-b border-border/80 bg-background/85 backdrop-blur-md">
+        <div className="mx-auto flex max-w-6xl flex-col gap-2.5 px-4 py-3 md:h-16 md:flex-row md:items-center md:justify-between md:py-0 md:px-6">
+          <div className="flex items-center justify-between gap-3 md:min-w-0">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-border/80 bg-card shadow-xs">
+                <GraduationCap className="size-4 text-foreground" />
+              </div>
+              <div className="min-w-0 leading-tight">
+                <h1 className="truncate font-heading text-sm font-semibold tracking-tight text-foreground sm:text-base">
+                  {displayName ? (
+                    <>
+                      Hola, <span className="capitalize">{displayName}</span>
+                    </>
+                  ) : (
+                    "Gestor Académico"
+                  )}
+                </h1>
+                <p className="truncate text-xs text-muted-foreground first-letter:uppercase">{today}</p>
+              </div>
+            </div>
+
+            {/* Acciones en móvil */}
+            <div className="flex shrink-0 items-center gap-0.5 md:hidden">
+              <Button variant="ghost" size="icon-sm" aria-label="Configuración" title="Configuración" onClick={() => setSettingsOpen(true)}>
+                <Settings className="size-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Cambiar tema"
+                onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
+              >
+                <Sun className="size-4 dark:hidden" />
+                <Moon className="hidden size-4 dark:block" />
+              </Button>
+              <SignOutButton />
             </div>
           </div>
-          <div className="flex shrink-0 items-center">
-            <Button variant="ghost" size="icon" aria-label="Configuración" title="Configuración" onClick={() => setSettingsOpen(true)}>
+
+          {/* Pestañas integradas en la barra superior */}
+          <TabsList className="h-9 w-full bg-muted/70 p-1 md:w-auto">
+            <TabsTrigger value="resumen" className="gap-1.5 px-3 text-xs font-medium sm:text-sm">
+              <LayoutGrid className="size-3.5" />
+              Resumen
+            </TabsTrigger>
+            <TabsTrigger value="horario" className="gap-1.5 px-3 text-xs font-medium sm:text-sm">
+              <CalendarDays className="size-3.5" />
+              Horario semanal
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Acciones en escritorio */}
+          <div className="hidden shrink-0 items-center gap-0.5 md:flex">
+            <Button variant="ghost" size="icon-sm" aria-label="Configuración" title="Configuración" onClick={() => setSettingsOpen(true)}>
               <Settings className="size-4" />
             </Button>
             <Button
               variant="ghost"
-              size="icon"
+              size="icon-sm"
               aria-label="Cambiar tema"
               onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
             >
@@ -88,111 +134,131 @@ export function DashboardClient() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl p-4 md:p-6">
+      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 md:px-6 md:py-8">
         {loadError && (
-          <p role="alert" className="mb-4 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+          <p role="alert" className="mb-5 rounded-xl border border-destructive/30 bg-destructive/10 p-3.5 text-sm text-destructive">
             No se pudieron cargar tus datos: {loadError}
           </p>
         )}
         {loading ? (
-          <p className="py-20 text-center text-sm text-muted-foreground">Cargando tus materias…</p>
+          <div className="flex flex-col items-center justify-center gap-2 py-24 text-center">
+            <p className="text-sm text-muted-foreground">Cargando tus materias…</p>
+          </div>
         ) : (
-          <Tabs defaultValue="resumen" className="gap-5">
-            <TabsList>
-              <TabsTrigger value="resumen">Resumen</TabsTrigger>
-              <TabsTrigger value="horario">Horario semanal</TabsTrigger>
-            </TabsList>
-
+          <>
             <TabsContent value="resumen" className="space-y-6">
               {isEmpty ? (
-          <Card>
-            <CardContent className="flex flex-col items-center gap-4 py-16 text-center">
-              <GraduationCap className="size-10 text-muted-foreground" />
-              <div>
-                <h2 className="text-lg font-semibold">Aún no tienes materias</h2>
-                <p className="text-sm text-muted-foreground">
-                  Agrega tu primera materia para empezar a seguir tus notas, o carga datos de ejemplo para explorar la app.
-                </p>
-              </div>
-              <div className="flex flex-wrap justify-center gap-2">
-                <Button onClick={() => setSubjectModal({ open: true, subject: null })}>
-                  <Plus className="size-4" /> Agregar materia
-                </Button>
-                <Button
-                  variant="secondary"
-                  disabled={seeding}
-                  onClick={async () => {
-                    setSeeding(true);
-                    const ok = await seedSampleData();
-                    setSeeding(false);
-                    if (ok) toast.success("Datos de ejemplo cargados");
-                  }}
-                >
-                  <Sparkles className="size-4" /> {seeding ? "Cargando…" : "Cargar datos de ejemplo"}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+                <div className="space-y-6">
+                  <Card className="border border-border/80 shadow-sm ring-0">
+                    <CardContent className="flex flex-col items-center gap-4 py-16 text-center">
+                      <div className="flex size-12 items-center justify-center rounded-xl border border-border/80 bg-muted/50">
+                        <GraduationCap className="size-6 text-muted-foreground" />
+                      </div>
+                      <div className="max-w-md space-y-1">
+                        <h2 className="font-heading text-lg font-semibold tracking-tight">Aún no tienes materias</h2>
+                        <p className="text-sm text-muted-foreground">
+                          Agrega tu primera materia para empezar a seguir tus notas, o carga datos de ejemplo para explorar la app.
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap justify-center gap-2">
+                        <Button size="sm" onClick={() => setSubjectModal({ open: true, subject: null })}>
+                          <Plus className="size-4" /> Agregar materia
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={seeding}
+                          onClick={async () => {
+                            setSeeding(true);
+                            const ok = await seedSampleData();
+                            setSeeding(false);
+                            if (ok) toast.success("Datos de ejemplo cargados");
+                          }}
+                        >
+                          <Sparkles className="size-4" /> {seeding ? "Cargando…" : "Cargar datos de ejemplo"}
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <TasksCard
+                    tasks={tasks}
+                    error={extrasError}
+                    onAdd={addTask}
+                    onToggle={toggleTask}
+                    onDelete={deleteTask}
+                  />
+                </div>
               ) : (
-                <div>
-            <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-              <Card className="lg:col-span-1">
-                <CardContent>
-                  <OverallAverageCard
+                <>
+                  {/* Fila superior del Bento Grid: 4 tarjetas KPI compactas */}
+                  <DashboardKpiGrid
                     average={average}
+                    evaluatedSubjectsCount={evaluatedSubjectsCount}
                     passingCount={passingCount}
                     totalSubjects={metrics.length}
                     minPassingGrade={minPassingGrade}
+                    classBlocks={classBlocks}
+                    subjects={subjects}
+                    tasks={tasks}
+                    onOpenSchedule={() => setActiveTab("horario")}
                   />
-                </CardContent>
-              </Card>
-              <Card className="lg:col-span-2">
-                <CardContent className="h-full">
-                  <UpcomingEvaluationsWidget
-                    items={upcoming}
-                    onAdd={() => setEvalFormOpen(true)}
-                    onSelect={(ev) => setGradingId(ev.id)}
-                  />
-                </CardContent>
-              </Card>
-            </section>
 
-            <section className="mt-6 space-y-3">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold">Tus materias</h2>
-                <Button size="sm" onClick={() => setSubjectModal({ open: true, subject: null })}>
-                  <Plus className="size-4" /> Agregar materia
-                </Button>
-              </div>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {metrics.map((m) => (
-                  <SubjectCard
-                    key={m.subject.id}
-                    metrics={m}
-                    onSimulate={() => setSimulatingId(m.subject.id)}
-                    evaluationCount={evalCounts.get(m.subject.id) ?? 0}
-                    onEdit={() => setSubjectModal({ open: true, subject: m.subject })}
-                    onDelete={() => setDeleting(m.subject)}
-                  />
-                ))}
-              </div>
-            </section>
-                </div>
+                  {/* Fila intermedia equilibrada: Próximas Evaluaciones + Tareas Rápidas */}
+                  <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                    <Card className="h-full border border-border/80 shadow-sm ring-0">
+                      <CardContent className="h-full">
+                        <UpcomingEvaluationsWidget
+                          items={upcoming}
+                          onAdd={() => setEvalFormOpen(true)}
+                          onSelect={(ev) => setGradingId(ev.id)}
+                        />
+                      </CardContent>
+                    </Card>
+
+                    <TasksCard
+                      tasks={tasks}
+                      error={extrasError}
+                      onAdd={addTask}
+                      onToggle={toggleTask}
+                      onDelete={deleteTask}
+                    />
+                  </section>
+
+                  {/* Sección de materias */}
+                  <section className="space-y-3.5 pt-1">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <h2 className="font-heading text-lg font-semibold tracking-tight">Tus materias</h2>
+                        <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground tabular-nums">
+                          {metrics.length}
+                        </span>
+                      </div>
+                      <Button size="sm" className="h-8 gap-1.5 text-xs" onClick={() => setSubjectModal({ open: true, subject: null })}>
+                        <Plus className="size-3.5" /> Agregar materia
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                      {metrics.map((m) => (
+                        <SubjectCard
+                          key={m.subject.id}
+                          metrics={m}
+                          onSimulate={() => setSimulatingId(m.subject.id)}
+                          evaluationCount={evalCounts.get(m.subject.id) ?? 0}
+                          onEdit={() => setSubjectModal({ open: true, subject: m.subject })}
+                          onDelete={() => setDeleting(m.subject)}
+                        />
+                      ))}
+                    </div>
+                  </section>
+                </>
               )}
-
-              <TasksCard
-                tasks={tasks}
-                error={extrasError}
-                onAdd={addTask}
-                onToggle={toggleTask}
-                onDelete={deleteTask}
-              />
             </TabsContent>
 
             <TabsContent value="horario">
               <WeeklySchedule />
             </TabsContent>
-          </Tabs>
+          </>
         )}
       </main>
 
@@ -265,6 +331,6 @@ export function DashboardClient() {
           }
         }}
       />
-    </div>
+    </Tabs>
   );
 }
