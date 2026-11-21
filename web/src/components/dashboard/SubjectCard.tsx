@@ -1,46 +1,73 @@
 "use client";
 
-import Link from "next/link";
 import { FlaskConical, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { AbsenceControl } from "@/components/subjects/AbsenceControl";
 import type { SubjectMetrics } from "@/lib/academic-math";
 
 interface SubjectCardProps {
   metrics: SubjectMetrics;
+  onOpenDetail: () => void;
   onSimulate: () => void;
+  onUpdateAbsences: (nextCount: number) => void;
   /** Cantidad de evaluaciones registradas (pendientes y calificadas) */
   evaluationCount?: number;
   onEdit?: () => void;
   onDelete?: () => void;
 }
 
-export function SubjectCard({ metrics, onSimulate, evaluationCount, onEdit, onDelete }: SubjectCardProps) {
+export function SubjectCard({
+  metrics,
+  onOpenDetail,
+  onSimulate,
+  onUpdateAbsences,
+  evaluationCount,
+  onEdit,
+  onDelete,
+}: SubjectCardProps) {
   const { subject, earnedPoints, evaluatedWeight, minPassingGrade, pointsNeededToPass, isPassing } = metrics;
 
   return (
-    <Card className="relative transition-shadow hover:ring-2 hover:ring-ring/40">
+    <Card className="relative cursor-pointer transition-shadow hover:ring-2 hover:ring-ring/40">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
-          <span className="size-3 rounded-full" style={{ backgroundColor: subject.color_hex }} />
-          {/* Enlace estirado: toda la tarjeta navega a la página de la materia */}
-          <Link
-            href={`/subjects/${subject.id}`}
-            className="outline-none after:absolute after:inset-0 after:rounded-[inherit] focus-visible:after:ring-2 focus-visible:after:ring-ring"
+          <span className="size-3 shrink-0 rounded-full" style={{ backgroundColor: subject.color_hex }} />
+          {/* Botón estirado: toda la tarjeta abre el panel lateral de detalle */}
+          <button
+            type="button"
+            onClick={onOpenDetail}
+            className="truncate text-left outline-none after:absolute after:inset-0 after:rounded-[inherit] focus-visible:after:ring-2 focus-visible:after:ring-ring"
           >
             {subject.name}
-          </Link>
+          </button>
         </CardTitle>
         {(onEdit || onDelete) && (
           <div className="relative z-10 col-start-2 row-span-2 row-start-1 flex gap-1 self-start justify-self-end">
             {onEdit && (
-              <Button variant="ghost" size="icon-sm" aria-label={`Editar ${subject.name}`} onClick={onEdit}>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label={`Editar ${subject.name}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit();
+                }}
+              >
                 <Pencil className="size-4" />
               </Button>
             )}
             {onDelete && (
-              <Button variant="ghost" size="icon-sm" aria-label={`Eliminar ${subject.name}`} onClick={onDelete}>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label={`Eliminar ${subject.name}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete();
+                }}
+              >
                 <Trash2 className="size-4" />
               </Button>
             )}
@@ -85,7 +112,24 @@ export function SubjectCard({ metrics, onSimulate, evaluationCount, onEdit, onDe
             : `Te faltan ${pointsNeededToPass} pts para aprobar (mín. ${minPassingGrade})`}
         </p>
 
-        <Button variant="secondary" size="sm" className="relative z-10 mt-1 w-full" onClick={onSimulate}>
+        {/* Mini-control rápido de inasistencias (- / +) con alerta visual */}
+        <AbsenceControl
+          subjectName={subject.name}
+          absencesCount={subject.absences_count}
+          maxAbsences={subject.max_absences}
+          onChange={onUpdateAbsences}
+          variant="compact"
+        />
+
+        <Button
+          variant="secondary"
+          size="sm"
+          className="relative z-10 mt-1 w-full"
+          onClick={(e) => {
+            e.stopPropagation();
+            onSimulate();
+          }}
+        >
           <FlaskConical className="size-4" /> Simulador de Notas
         </Button>
       </CardContent>

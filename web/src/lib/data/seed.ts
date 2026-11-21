@@ -19,6 +19,10 @@ export async function seedSampleData(
           name: s.name,
           color_hex: s.color_hex,
           min_passing_grade: null,
+          absences_count: s.absences_count,
+          max_absences: s.max_absences,
+          professor: s.professor,
+          resource_url: s.resource_url,
         }))
       )
       .select()
