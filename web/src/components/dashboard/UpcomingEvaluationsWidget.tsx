@@ -47,37 +47,45 @@ export function UpcomingEvaluationsWidget({
 
   return (
     <div className="flex h-full flex-col gap-3">
-      <div className="flex items-center justify-between">
-        <h2 className="flex items-center gap-2 text-base font-semibold">
-          <CalendarDays className="size-4" /> Próximas evaluaciones
-        </h2>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <CalendarDays className="size-4 text-muted-foreground" />
+          <h2 className="font-heading text-sm font-semibold tracking-tight">Próximas evaluaciones</h2>
+          {items.length > 0 && (
+            <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground tabular-nums">
+              {items.length}
+            </span>
+          )}
+        </div>
         {onAdd && (
-          <Button size="sm" onClick={onAdd}>
-            <Plus className="size-4" /> Nueva
+          <Button size="sm" variant="outline" className="h-7 gap-1 px-2.5 text-xs" onClick={onAdd}>
+            <Plus className="size-3.5" /> Nueva
           </Button>
         )}
       </div>
 
       {visible.length === 0 ? (
-        <p className="py-8 text-center text-sm text-muted-foreground">No tienes evaluaciones pendientes 🎉</p>
+        <div className="flex flex-1 items-center justify-center py-8 text-center">
+          <p className="text-sm text-muted-foreground">No tienes evaluaciones pendientes</p>
+        </div>
       ) : (
-        <ul className={cn("flex flex-col divide-y", expanded && "max-h-96 overflow-y-auto")}>
+        <ul className={cn("flex flex-col divide-y divide-border/60", expanded && "max-h-80 overflow-y-auto pr-1")}>
           {visible.map(({ evaluation, subjectName, subjectColor, daysRemaining }) => (
             <li key={evaluation.id}>
               <button
                 type="button"
                 onClick={() => onSelect?.(evaluation)}
                 aria-label={`Calificar ${evaluation.title} de ${subjectName}`}
-                className="flex w-full items-center gap-3 rounded-md px-1 py-2.5 text-left outline-none transition-colors hover:bg-muted/60 focus-visible:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring"
+                className="flex w-full items-center gap-3 rounded-lg px-2 py-2.5 text-left outline-none transition-colors hover:bg-accent/60 focus-visible:bg-accent/60 focus-visible:ring-2 focus-visible:ring-ring"
               >
-                <span className="h-9 w-1 shrink-0 rounded-full" style={{ backgroundColor: subjectColor }} />
+                <span className="h-8 w-1 shrink-0 rounded-full" style={{ backgroundColor: subjectColor }} />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-medium">{evaluation.title}</span>
-                  <span className="block truncate text-xs text-muted-foreground">
+                  <span className="block truncate text-sm font-medium text-foreground">{evaluation.title}</span>
+                  <span className="block truncate text-xs text-muted-foreground tabular-nums">
                     {subjectName} · {formatDate(evaluation.due_date)} · {evaluation.weight_percentage}%
                   </span>
                 </span>
-                <Badge className={cn("shrink-0 border-0", urgencyClass(daysRemaining))}>
+                <Badge className={cn("shrink-0 border-0 text-[11px] font-medium tabular-nums", urgencyClass(daysRemaining))}>
                   {urgencyLabel(daysRemaining)}
                 </Badge>
               </button>
@@ -91,9 +99,9 @@ export function UpcomingEvaluationsWidget({
           type="button"
           onClick={() => setExpanded((v) => !v)}
           aria-expanded={expanded}
-          className="mt-auto self-start rounded text-xs font-medium text-muted-foreground underline underline-offset-4 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+          className="mt-auto self-start rounded text-xs font-medium text-muted-foreground underline underline-offset-4 outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
         >
-          {expanded ? "Ver menos" : `+${hidden} más`}
+          {expanded ? "Ver menos" : `Ver ${hidden} más`}
         </button>
       )}
     </div>

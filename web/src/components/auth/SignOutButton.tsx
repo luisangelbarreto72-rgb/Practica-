@@ -17,7 +17,7 @@ export function SignOutButton() {
   return (
     <Button
       variant="ghost"
-      size="icon"
+      size="icon-sm"
       aria-label="Cerrar sesión"
       title="Cerrar sesión"
       onClick={async () => {
