@@ -16,6 +16,10 @@ export interface Subject {
   name: string;
   color_hex: string;
   min_passing_grade: number | null;
+  absences_count: number;
+  max_absences: number;
+  professor: string | null;
+  resource_url: string | null;
   is_archived: boolean;
   created_at: string;
 }

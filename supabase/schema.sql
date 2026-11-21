@@ -5,7 +5,8 @@
 -- (borra las tablas primero si quieres empezar de cero).
 -- Coincide con web/src/types/database.ts
 -- NOTA: las tablas de tareas y horario (tasks, class_blocks) están en
---       supabase/migrations/002_tasks_and_schedule.sql (ejecútala después de este archivo).
+--       supabase/migrations/002_tasks_and_schedule.sql, y los campos de
+--       inasistencias/profesor/carpeta en supabase/migrations/003_subject_absences_and_details.sql.
 -- ============================================================================
 
 -- 1. PROFILES: extiende auth.users con preferencias del estudiante ------------

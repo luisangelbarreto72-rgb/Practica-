@@ -17,6 +17,10 @@ export function toSubject(r: Record<string, unknown>): Subject {
   return {
     ...(r as unknown as Subject),
     min_passing_grade: numOrNull(r.min_passing_grade),
+    absences_count: r.absences_count !== undefined && r.absences_count !== null ? num(r.absences_count) : 0,
+    max_absences: r.max_absences !== undefined && r.max_absences !== null ? num(r.max_absences) : 4,
+    professor: typeof r.professor === "string" && r.professor.trim() !== "" ? r.professor : null,
+    resource_url: typeof r.resource_url === "string" && r.resource_url.trim() !== "" ? r.resource_url : null,
   };
 }
 

@@ -14,7 +14,16 @@ export async function createSubject(sb: Supabase, userId: string, input: Subject
   const row = unwrap(
     await sb
       .from("subjects")
-      .insert({ user_id: userId, name: input.name, color_hex: input.color_hex, min_passing_grade: input.min_passing_grade })
+      .insert({
+        user_id: userId,
+        name: input.name,
+        color_hex: input.color_hex,
+        min_passing_grade: input.min_passing_grade,
+        absences_count: input.absences_count ?? 0,
+        max_absences: input.max_absences ?? 4,
+        professor: input.professor ?? null,
+        resource_url: input.resource_url ?? null,
+      })
       .select()
       .single()
   );
@@ -22,10 +31,33 @@ export async function createSubject(sb: Supabase, userId: string, input: Subject
 }
 
 export async function updateSubject(sb: Supabase, id: string, input: SubjectInput): Promise<Subject> {
+  const patch: Record<string, unknown> = {
+    name: input.name,
+    color_hex: input.color_hex,
+    min_passing_grade: input.min_passing_grade,
+  };
+  if (input.absences_count !== undefined) patch.absences_count = input.absences_count;
+  if (input.max_absences !== undefined) patch.max_absences = input.max_absences;
+  if (input.professor !== undefined) patch.professor = input.professor;
+  if (input.resource_url !== undefined) patch.resource_url = input.resource_url;
+
   const row = unwrap(
     await sb
       .from("subjects")
-      .update({ name: input.name, color_hex: input.color_hex, min_passing_grade: input.min_passing_grade })
+      .update(patch)
+      .eq("id", id)
+      .select()
+      .single()
+  );
+  return toSubject(row);
+}
+
+export async function updateSubjectAbsences(sb: Supabase, id: string, absencesCount: number): Promise<Subject> {
+  const safeCount = Math.max(0, Math.trunc(absencesCount));
+  const row = unwrap(
+    await sb
+      .from("subjects")
+      .update({ absences_count: safeCount })
       .eq("id", id)
       .select()
       .single()

@@ -5,6 +5,10 @@ export interface SubjectInput {
   color_hex: string;
   /** null = hereda la nota mínima global del perfil */
   min_passing_grade: number | null;
+  absences_count?: number;
+  max_absences?: number;
+  professor?: string | null;
+  resource_url?: string | null;
 }
 
 export interface NewEvaluationData {

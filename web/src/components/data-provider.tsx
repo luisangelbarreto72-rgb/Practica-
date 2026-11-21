@@ -21,7 +21,13 @@ import {
 } from "@/lib/data/schedule";
 import { createTask, deleteTask as dbDeleteTask, fetchTasks, setTaskCompleted } from "@/lib/data/tasks";
 import { seedSampleData as dbSeedSampleData } from "@/lib/data/seed";
-import { createSubject, deleteSubject as dbDeleteSubject, fetchSubjects, updateSubject as dbUpdateSubject } from "@/lib/data/subjects";
+import {
+  createSubject,
+  deleteSubject as dbDeleteSubject,
+  fetchSubjects,
+  updateSubject as dbUpdateSubject,
+  updateSubjectAbsences as dbUpdateSubjectAbsences,
+} from "@/lib/data/subjects";
 import type { ClassBlockInput, EvaluationPatch, NewEvaluationData, ProfileData, SubjectInput } from "@/lib/data/types";
 import { MOCK_MIN_PASSING_GRADE, mockEvaluations, mockSubjects } from "@/lib/mock-data";
 import { createClient } from "@/lib/supabase/client";
@@ -48,6 +54,7 @@ interface DataContextValue {
   isDemo: boolean;
   addSubject: (input: SubjectInput) => Promise<boolean>;
   updateSubject: (id: string, input: SubjectInput) => Promise<boolean>;
+  updateSubjectAbsences: (id: string, absencesCount: number) => Promise<boolean>;
   deleteSubject: (id: string) => Promise<boolean>;
   addEvaluation: (data: NewEvaluationData) => Promise<boolean>;
   updateEvaluation: (id: string, patch: EvaluationPatch) => Promise<boolean>;
@@ -183,7 +190,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (!supabase) {
           setSubjects((p) => [
             ...p,
-            { id: crypto.randomUUID(), user_id: "demo-user", is_archived: false, created_at: new Date().toISOString(), ...input },
+            {
+              id: crypto.randomUUID(),
+              user_id: "demo-user",
+              is_archived: false,
+              created_at: new Date().toISOString(),
+              absences_count: input.absences_count ?? 0,
+              max_absences: input.max_absences ?? 4,
+              professor: input.professor ?? null,
+              resource_url: input.resource_url ?? null,
+              name: input.name,
+              color_hex: input.color_hex,
+              min_passing_grade: input.min_passing_grade,
+            },
           ]);
           return;
         }
@@ -203,6 +222,31 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const updated = await dbUpdateSubject(supabase, id, input);
         setSubjects((p) => p.map((s) => (s.id === id ? updated : s)));
       }),
+    [supabase, run]
+  );
+
+  const updateSubjectAbsences = useCallback(
+    async (id: string, absencesCount: number) => {
+      const safeCount = Math.max(0, Math.trunc(absencesCount));
+      let previous: number | null = null;
+      setSubjects((p) =>
+        p.map((s) => {
+          if (s.id !== id) return s;
+          previous = s.absences_count;
+          return { ...s, absences_count: safeCount };
+        })
+      );
+      const ok = await run("No se pudieron actualizar las inasistencias", async () => {
+        if (!supabase) return;
+        const updated = await dbUpdateSubjectAbsences(supabase, id, safeCount);
+        setSubjects((p) => p.map((s) => (s.id === id ? updated : s)));
+      });
+      if (!ok && previous !== null) {
+        const revert = previous;
+        setSubjects((p) => p.map((s) => (s.id === id ? { ...s, absences_count: revert } : s)));
+      }
+      return ok;
+    },
     [supabase, run]
   );
 
@@ -393,6 +437,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       isDemo,
       addSubject,
       updateSubject,
+      updateSubjectAbsences,
       deleteSubject,
       addEvaluation,
       updateEvaluation,
@@ -421,6 +466,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       isDemo,
       addSubject,
       updateSubject,
+      updateSubjectAbsences,
       deleteSubject,
       addEvaluation,
       updateEvaluation,

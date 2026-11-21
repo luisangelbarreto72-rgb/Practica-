@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Pencil, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, ExternalLink, FolderOpen, Pencil, Plus, Trash2, User } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,7 @@ import { useData } from "@/components/data-provider";
 import { EvaluationFormModal } from "@/components/evaluations/EvaluationFormModal";
 import { GradeEvaluationModal } from "@/components/evaluations/GradeEvaluationModal";
 import { calculateEvaluationPoints, calculateSubjectMetrics } from "@/lib/academic-math";
+import { AbsenceControl } from "@/components/subjects/AbsenceControl";
 import { SubjectFormModal } from "@/components/subjects/SubjectFormModal";
 import { ConfirmDialog } from "@/components/ui-extra/ConfirmDialog";
 import type { Evaluation } from "@/types/database";
@@ -39,10 +40,20 @@ function sortEvaluations(list: Evaluation[]): Evaluation[] {
   });
 }
 
+function getSafeExternalUrl(url: string | null): string | null {
+  if (!url) return null;
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "http:" || parsed.protocol === "https:" ? parsed.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
 export function SubjectDetailClient({ subjectId }: { subjectId: string }) {
   const {
     subjects, evaluations, minPassingGrade, loading,
-    addEvaluation, updateEvaluation, gradeEvaluation, deleteEvaluation, updateSubject, deleteSubject,
+    addEvaluation, updateEvaluation, gradeEvaluation, deleteEvaluation, updateSubject, updateSubjectAbsences, deleteSubject,
   } = useData();
   const router = useRouter();
   const [formOpen, setFormOpen] = useState(false);
@@ -79,6 +90,8 @@ export function SubjectDetailClient({ subjectId }: { subjectId: string }) {
     );
   }
 
+  const safeResourceUrl = getSafeExternalUrl(subject.resource_url);
+
   return (
     <div className="min-h-screen bg-muted/30">
       <header className="sticky top-0 z-10 border-b bg-background/80 backdrop-blur">
@@ -100,27 +113,57 @@ export function SubjectDetailClient({ subjectId }: { subjectId: string }) {
       </header>
 
       <main className="mx-auto max-w-4xl space-y-6 p-4 md:p-6">
-        <Card>
-          <CardContent className="flex flex-col gap-3">
-            <p className="text-3xl font-bold tabular-nums">
-              {metrics.earnedPoints}
-              <span className="text-sm font-normal text-muted-foreground"> / 100</span>
-            </p>
-            <div className="relative pt-1">
-              <Progress value={Math.min(100, metrics.earnedPoints)} aria-label={`Progreso de ${subject.name}`} />
-              <div
-                className="absolute top-0 h-3 w-0.5 bg-foreground/60"
-                style={{ left: `${metrics.minPassingGrade}%` }}
-                title={`Nota mínima: ${metrics.minPassingGrade}`}
-              />
-            </div>
-            <p className="text-sm text-muted-foreground">
-              {metrics.isPassing
-                ? "¡Ya alcanzaste la nota mínima!"
-                : `Te faltan ${metrics.pointsNeededToPass} pts para aprobar (mín. ${metrics.minPassingGrade})`}
-            </p>
-          </CardContent>
-        </Card>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <Card>
+            <CardContent className="flex flex-col gap-3">
+              <p className="text-3xl font-bold tabular-nums">
+                {metrics.earnedPoints}
+                <span className="text-sm font-normal text-muted-foreground"> / 100</span>
+              </p>
+              <div className="relative pt-1">
+                <Progress value={Math.min(100, metrics.earnedPoints)} aria-label={`Progreso de ${subject.name}`} />
+                <div
+                  className="absolute top-0 h-3 w-0.5 bg-foreground/60"
+                  style={{ left: `${metrics.minPassingGrade}%` }}
+                  title={`Nota mínima: ${metrics.minPassingGrade}`}
+                />
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {metrics.isPassing
+                  ? "¡Ya alcanzaste la nota mínima!"
+                  : `Te faltan ${metrics.pointsNeededToPass} pts para aprobar (mín. ${metrics.minPassingGrade})`}
+              </p>
+              {(subject.professor || safeResourceUrl) && (
+                <div className="flex flex-wrap items-center gap-3 pt-1 text-xs text-muted-foreground">
+                  {subject.professor && (
+                    <span className="inline-flex items-center gap-1">
+                      <User className="size-3.5" /> {subject.professor}
+                    </span>
+                  )}
+                  {safeResourceUrl && (
+                    <a
+                      href={safeResourceUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 font-medium text-foreground underline-offset-4 hover:underline"
+                    >
+                      <FolderOpen className="size-3.5" /> Carpeta de estudio <ExternalLink className="size-3" />
+                    </a>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <AbsenceControl
+            subjectName={subject.name}
+            absencesCount={subject.absences_count}
+            maxAbsences={subject.max_absences}
+            onChange={(next) => void updateSubjectAbsences(subject.id, next)}
+            variant="full"
+            className="justify-center bg-card"
+          />
+        </div>
 
         <section className="space-y-3">
           <div className="flex items-center justify-between">
